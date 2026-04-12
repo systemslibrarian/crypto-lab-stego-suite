@@ -36,6 +36,24 @@
   box-sizing: border-box;
 }
 
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--accent);
+  color: var(--bg);
+  padding: 0.6rem 1.2rem;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  z-index: 100;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);
@@ -148,7 +166,8 @@ label {
 }
 
 textarea,
-input,
+input[type="text"],
+input[type="password"],
 button {
   width: 100%;
   border: 1px solid var(--border);
@@ -158,6 +177,12 @@ button {
   font-family: inherit;
   font-size: 0.98rem;
   padding: 0.55rem 0.65rem;
+}
+
+input[type="checkbox"] {
+  width: auto;
+  margin-right: 0.35rem;
+  accent-color: var(--accent);
 }
 
 textarea {
@@ -236,6 +261,11 @@ table {
   font-size: 0.9rem;
 }
 
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 th,
 td {
   border: 1px solid var(--border);
@@ -277,5 +307,35 @@ small {
   .theme-toggle {
     top: 0.7rem;
     right: 0.7rem;
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .canvas-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .controls {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    padding-right: 3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .exhibit {
+    padding: 0.75rem;
+  }
+
+  .hero {
+    padding: 0.9rem;
+  }
+
+  button {
+    min-height: 44px;
   }
 }

@@ -15,9 +15,9 @@ if (!app) {
 }
 
 app.innerHTML = `
-  <main class="shell">
-    <header class="hero">
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode">🌙</button>
+  <main class="shell" id="main-content">
+    <header class="hero" role="banner">
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode"><span aria-hidden="true">🌙</span></button>
       <h1>Stego Suite</h1>
       <p class="subtitle">
         The definitive browser-based educational steganography demo: LSB substitution, F5-inspired DCT embedding,
@@ -26,8 +26,8 @@ app.innerHTML = `
       <small>Encryption hides content; steganography hides existence. Strongest model: encrypt first, then hide.</small>
     </header>
 
-    <section class="exhibit" id="exhibit-1">
-      <h2>Exhibit 1 — Steganography vs Cryptography: Two Different Goals</h2>
+    <section class="exhibit" id="exhibit-1" aria-labelledby="exhibit-1-heading">
+      <h2 id="exhibit-1-heading">Exhibit 1 — Steganography vs Cryptography: Two Different Goals</h2>
       <p>
         <strong>Cryptography</strong> transforms content into unreadable ciphertext: existence is visible, meaning is hidden.
         <strong>Steganography</strong> hides a payload inside a normal-looking medium: existence is hidden, not just content.
@@ -49,9 +49,10 @@ app.innerHTML = `
         <strong>Why this matters:</strong> steganography appears in digital watermarking, covert channels, printer tracking dots,
         and activist/journalist communications where message existence is itself sensitive.
       </div>
+      <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Vocabulary</th><th>Meaning</th></tr>
+          <tr><th scope="col">Vocabulary</th><th scope="col">Meaning</th></tr>
         </thead>
         <tbody>
           <tr><td>Cover medium</td><td>Original image/audio/video before embedding.</td></tr>
@@ -61,10 +62,11 @@ app.innerHTML = `
           <tr><td>Detectability</td><td>How likely steganalysis identifies stego content.</td></tr>
         </tbody>
       </table>
+      </div>
     </section>
 
-    <section class="exhibit" id="exhibit-2">
-      <h2>Exhibit 2 — LSB Substitution: The Simplest Technique</h2>
+    <section class="exhibit" id="exhibit-2" aria-labelledby="exhibit-2-heading">
+      <h2 id="exhibit-2-heading">Exhibit 2 — LSB Substitution: The Simplest Technique</h2>
       <p>
         RGB channels are 8-bit values. Flipping the least-significant bit (LSB) changes a channel by at most 1,
         usually visually imperceptible. This demo embeds 1 bit per channel (3 bits per pixel).
@@ -76,23 +78,23 @@ app.innerHTML = `
         </div>
         <div>
           <label for="lsb-passphrase">Passphrase for optional AES-256-GCM</label>
-          <input id="lsb-passphrase" type="text" placeholder="Optional passphrase" />
-          <label><input id="lsb-encrypt" type="checkbox" /> Encrypt before embedding (AES-256-GCM)</label>
+          <input id="lsb-passphrase" type="password" placeholder="Optional passphrase" autocomplete="off" />
+          <label for="lsb-encrypt"><input id="lsb-encrypt" type="checkbox" /> Encrypt before embedding (AES-256-GCM)</label>
         </div>
       </div>
-      <div class="controls">
+      <div class="controls" role="toolbar" aria-label="LSB embedding controls">
         <button id="lsb-embed" type="button">Embed message</button>
         <button id="lsb-extract" type="button">Extract message</button>
         <button id="lsb-download" type="button">Download stego PNG</button>
       </div>
-      <div class="stats" id="lsb-stats"></div>
+      <div class="stats" id="lsb-stats" aria-live="polite" role="status"></div>
       <div class="canvas-grid">
-        <div class="figure"><h4>Cover image</h4><canvas id="lsb-cover" width="256" height="256"></canvas></div>
-        <div class="figure"><h4>Stego image</h4><canvas id="lsb-stego" width="256" height="256"></canvas></div>
-        <div class="figure"><h4>20× zoom (cover, 10×10 region)</h4><canvas id="lsb-zoom-cover" width="200" height="200"></canvas></div>
-        <div class="figure"><h4>20× zoom (stego, 10×10 region)</h4><canvas id="lsb-zoom-stego" width="200" height="200"></canvas></div>
-        <div class="figure"><h4>Histogram before</h4><canvas id="lsb-hist-cover" width="256" height="140"></canvas></div>
-        <div class="figure"><h4>Histogram after</h4><canvas id="lsb-hist-stego" width="256" height="140"></canvas></div>
+        <div class="figure"><h4>Cover image</h4><canvas id="lsb-cover" width="256" height="256" role="img" aria-label="Cover image before steganographic embedding"></canvas></div>
+        <div class="figure"><h4>Stego image</h4><canvas id="lsb-stego" width="256" height="256" role="img" aria-label="Stego image after LSB embedding"></canvas></div>
+        <div class="figure"><h4>20× zoom (cover, 10×10 region)</h4><canvas id="lsb-zoom-cover" width="200" height="200" role="img" aria-label="Zoomed pixel view of cover image"></canvas></div>
+        <div class="figure"><h4>20× zoom (stego, 10×10 region)</h4><canvas id="lsb-zoom-stego" width="200" height="200" role="img" aria-label="Zoomed pixel view of stego image"></canvas></div>
+        <div class="figure"><h4>Histogram before</h4><canvas id="lsb-hist-cover" width="256" height="140" role="img" aria-label="Histogram of pixel values in cover image"></canvas></div>
+        <div class="figure"><h4>Histogram after</h4><canvas id="lsb-hist-stego" width="256" height="140" role="img" aria-label="Histogram of pixel values in stego image"></canvas></div>
       </div>
       <div class="callout">
         <strong>Why this matters:</strong> LSB can fool human vision but introduces measurable statistical artifacts.
@@ -100,28 +102,28 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section class="exhibit" id="exhibit-3">
-      <h2>Exhibit 3 — Chi-Squared Steganalysis: Detecting LSB</h2>
+    <section class="exhibit" id="exhibit-3" aria-labelledby="exhibit-3-heading">
+      <h2 id="exhibit-3-heading">Exhibit 3 — Chi-Squared Steganalysis: Detecting LSB</h2>
       <p>
-        Westfeld & Pfitzmann (IH 1999) pair-value test over (0,1), (2,3), ..., (254,255). LSB embedding tends to equalize each pair.
+        Westfeld &amp; Pfitzmann (IH 1999) pair-value test over (0,1), (2,3), ..., (254,255). LSB embedding tends to equalize each pair.
         This implementation computes a real chi-squared statistic and p-value with 127 degrees of freedom.
       </p>
-      <div class="controls">
+      <div class="controls" role="toolbar" aria-label="Chi-squared test controls">
         <button id="chi-test-cover" type="button">Test cover image</button>
         <button id="chi-test-stego" type="button">Test stego image</button>
         <button id="chi-run-curve" type="button">Run payload detectability curve</button>
       </div>
-      <div class="stats" id="chi-results"></div>
-      <div class="figure"><h4>Chi-squared distribution (dof = 127)</h4><canvas id="chi-plot" width="640" height="220"></canvas></div>
-      <div id="chi-curve"></div>
+      <div class="stats" id="chi-results" aria-live="polite" role="status"></div>
+      <div class="figure"><h4>Chi-squared distribution (dof = 127)</h4><canvas id="chi-plot" width="640" height="220" role="img" aria-label="Chi-squared probability distribution with test statistic marker"></canvas></div>
+      <div id="chi-curve" aria-live="polite"></div>
       <div class="callout">
         <strong>Why this matters:</strong> the test does not need the original cover image and runs quickly,
         which is why naive LSB has been considered weak for adversarial use since 1999.
       </div>
     </section>
 
-    <section class="exhibit" id="exhibit-4">
-      <h2>Exhibit 4 — DCT-Domain Steganography (F5-inspired)</h2>
+    <section class="exhibit" id="exhibit-4" aria-labelledby="exhibit-4-heading">
+      <h2 id="exhibit-4-heading">Exhibit 4 — DCT-Domain Steganography (F5-inspired)</h2>
       <p>
         JPEG steganography works in frequency coefficients. This browser demo performs an educational 8×8 DCT workflow on raw image data.
         <strong>Label:</strong> F5-inspired DCT embedding — not full F5 JPEG re-encoding.
@@ -138,17 +140,17 @@ app.innerHTML = `
           </small>
         </div>
       </div>
-      <div class="controls">
+      <div class="controls" role="toolbar" aria-label="DCT embedding controls">
         <button id="dct-transform" type="button">DCT transform</button>
         <button id="dct-embed" type="button">Embed in DCT</button>
         <button id="dct-inverse" type="button">Inverse DCT</button>
         <button id="dct-extract" type="button">Extract message</button>
       </div>
-      <div class="stats" id="dct-stats"></div>
+      <div class="stats" id="dct-stats" aria-live="polite" role="status"></div>
       <div class="canvas-grid">
-        <div class="figure"><h4>DCT heatmap before</h4><canvas id="dct-before" width="240" height="240"></canvas></div>
-        <div class="figure"><h4>DCT heatmap after (modified highlighted)</h4><canvas id="dct-after" width="240" height="240"></canvas></div>
-        <div class="figure"><h4>Spatial image after inverse DCT</h4><canvas id="dct-image" width="256" height="256"></canvas></div>
+        <div class="figure"><h4>DCT heatmap before</h4><canvas id="dct-before" width="240" height="240" role="img" aria-label="DCT coefficient heatmap before embedding"></canvas></div>
+        <div class="figure"><h4>DCT heatmap after (modified highlighted)</h4><canvas id="dct-after" width="240" height="240" role="img" aria-label="DCT coefficient heatmap after embedding with changes highlighted"></canvas></div>
+        <div class="figure"><h4>Spatial image after inverse DCT</h4><canvas id="dct-image" width="256" height="256" role="img" aria-label="Image reconstructed from inverse DCT"></canvas></div>
       </div>
       <div class="callout">
         <strong>Why this matters:</strong> DCT-domain hiding is operationally important because JPEG dominates web imagery.
@@ -156,8 +158,8 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section class="exhibit" id="exhibit-5">
-      <h2>Exhibit 5 — Adaptive Steganography (WOW-inspired)</h2>
+    <section class="exhibit" id="exhibit-5" aria-labelledby="exhibit-5-heading">
+      <h2 id="exhibit-5-heading">Exhibit 5 — Adaptive Steganography (WOW-inspired)</h2>
       <p>
         Educational simplification inspired by WOW (Holub & Fridrich, WIFS 2012): compute a texture map using Sobel gradients,
         then embed first in low-cost (high-texture) locations and avoid smooth regions.
@@ -173,17 +175,17 @@ app.innerHTML = `
           </small>
         </div>
       </div>
-      <div class="controls">
+      <div class="controls" role="toolbar" aria-label="Adaptive embedding controls">
         <button id="adapt-map" type="button">Compute texture map</button>
         <button id="adapt-embed" type="button">Adaptive embed</button>
         <button id="adapt-seq" type="button">Sequential LSB embed</button>
         <button id="adapt-compare" type="button">Compare chi-squared detectability</button>
       </div>
-      <div class="stats" id="adapt-stats"></div>
+      <div class="stats" id="adapt-stats" aria-live="polite" role="status"></div>
       <div class="canvas-grid">
-        <div class="figure"><h4>Texture cost map (green low cost, red high cost)</h4><canvas id="adapt-map-canvas" width="256" height="256"></canvas></div>
-        <div class="figure"><h4>Adaptive embedding locations</h4><canvas id="adapt-locations" width="256" height="256"></canvas></div>
-        <div class="figure"><h4>Sequential embedding locations</h4><canvas id="seq-locations" width="256" height="256"></canvas></div>
+        <div class="figure"><h4>Texture cost map (green low cost, red high cost)</h4><canvas id="adapt-map-canvas" width="256" height="256" role="img" aria-label="Texture cost map showing low-cost areas in green and high-cost in red"></canvas></div>
+        <div class="figure"><h4>Adaptive embedding locations</h4><canvas id="adapt-locations" width="256" height="256" role="img" aria-label="Image showing where adaptive embedding placed payload bits"></canvas></div>
+        <div class="figure"><h4>Sequential embedding locations</h4><canvas id="seq-locations" width="256" height="256" role="img" aria-label="Image showing where sequential embedding placed payload bits"></canvas></div>
       </div>
       <div class="callout">
         <strong>Why this matters:</strong> adaptive methods reduce detectability compared to naive sequential LSB,
@@ -191,8 +193,8 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section class="exhibit" id="exhibit-6">
-      <h2>Exhibit 6 — Steganography in the Real World</h2>
+    <section class="exhibit" id="exhibit-6" aria-labelledby="exhibit-6-heading">
+      <h2 id="exhibit-6-heading">Exhibit 6 — Steganography in the Real World</h2>
       <div class="row">
         <div>
           <h3>Case A — Printer Tracking Dots</h3>
@@ -216,11 +218,11 @@ app.innerHTML = `
           <p>Steganography is dual-use: privacy-preserving for journalists/activists and potentially abused by adversaries.</p>
         </div>
       </div>
-      <div class="links">
-        <a href="https://systemslibrarian.github.io/snow2/" target="_blank" rel="noreferrer">Snow 2 demo</a>
-        <a href="https://systemslibrarian.github.io/crypto-lab-shadow-vault/" target="_blank" rel="noreferrer">Shadow Vault demo</a>
-        <a href="https://systemslibrarian.github.io/crypto-compare/" target="_blank" rel="noreferrer">Crypto Compare reference</a>
-      </div>
+      <nav class="links" aria-label="Related demos">
+        <a href="https://systemslibrarian.github.io/snow2/" target="_blank" rel="noreferrer">Snow 2 demo <span aria-hidden="true">↗</span></a>
+        <a href="https://systemslibrarian.github.io/crypto-lab-shadow-vault/" target="_blank" rel="noreferrer">Shadow Vault demo <span aria-hidden="true">↗</span></a>
+        <a href="https://systemslibrarian.github.io/crypto-compare/" target="_blank" rel="noreferrer">Crypto Compare reference <span aria-hidden="true">↗</span></a>
+      </nav>
     </section>
   </main>
 `;
@@ -234,7 +236,7 @@ function installThemeToggle(): void {
 
   const sync = (): void => {
     const isDark = root.getAttribute("data-theme") !== "light";
-    button.textContent = isDark ? "🌙" : "☀️";
+    button.innerHTML = `<span aria-hidden="true">${isDark ? "🌙" : "☀️"}</span>`;
     button.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
   };
 
@@ -932,6 +934,11 @@ function decodeTextPacket(bits: number[]): string {
   return new TextDecoder().decode(body);
 }
 
+let lsbHasEmbedded = false;
+let dctHasEmbedded = false;
+let adaptHasEmbedded = false;
+let seqHasEmbedded = false;
+
 const coverImage = createSampleImageData(CANVAS_SIZE, CANVAS_SIZE);
 let lsbStegoImage = cloneImageData(coverImage);
 let dctState = computeDctBlocks(coverImage);
@@ -992,6 +999,7 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
 
   const result = embedBitsSpatial(coverImage, bits);
   lsbStegoImage = result.stego;
+  lsbHasEmbedded = true;
   drawImageData(lsbStegoCtx, lsbStegoImage);
   drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);
   drawHistogram(computeHistogram(lsbStegoImage), "lsb-hist-stego");
@@ -1008,6 +1016,10 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
 });
 
 (document.getElementById("lsb-extract") as HTMLButtonElement).addEventListener("click", async () => {
+  if (!lsbHasEmbedded) {
+    lsbStats.innerHTML = `<span class="status-warn">No message embedded yet. Embed a message first.</span>`;
+    return;
+  }
   const headerBits = extractBitsSpatial(lsbStegoImage, 32);
   const packetLenBytes = bitsToBytes(headerBits);
   const packetLen = bytesToU32(packetLenBytes, 0);
@@ -1071,6 +1083,10 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
 });
 
 (document.getElementById("chi-test-stego") as HTMLButtonElement).addEventListener("click", () => {
+  if (!lsbHasEmbedded) {
+    chiResults.innerHTML = `<span class="status-warn">No LSB embedding done yet. Embed a message in Exhibit 2 first.</span>`;
+    return;
+  }
   const res = chiSquaredSteganalysis(lsbStegoImage);
   drawChiPlot("chi-plot", res.chi2, res.dof);
   const detected = res.pValue < 0.05;
@@ -1091,7 +1107,7 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
     const res = chiSquaredSteganalysis(stego);
     return `<tr><td>${Math.round(r * 100)}%</td><td>${bitCount.toLocaleString()}</td><td>${res.chi2.toFixed(2)}</td><td>${res.pValue.toExponential(3)}</td></tr>`;
   });
-  chiCurve.innerHTML = `<table><thead><tr><th>Payload rate</th><th>Bits</th><th>χ²</th><th>p-value</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+  chiCurve.innerHTML = `<div class="table-wrap"><table><thead><tr><th scope="col">Payload rate</th><th scope="col">Bits</th><th scope="col">χ²</th><th scope="col">p-value</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
 });
 
 (document.getElementById("dct-transform") as HTMLButtonElement).addEventListener("click", () => {
@@ -1105,6 +1121,7 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
   const bits = encodeTextPacket(message);
   dctState = computeDctBlocks(coverImage);
   const written = embedBitsDct(dctState, bits);
+  dctHasEmbedded = dctState.embedded;
   drawDctHeatmap("dct-before", computeDctBlocks(coverImage).blocks[0], new Set<string>(), 0);
   drawDctHeatmap("dct-after", dctState.blocks[0], dctState.modified, 0);
   dctStats.innerHTML = `Embedded ${written} bits into non-zero AC coefficients with ±1 coefficient edits. ${
@@ -1119,6 +1136,10 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
 });
 
 (document.getElementById("dct-extract") as HTMLButtonElement).addEventListener("click", () => {
+  if (!dctHasEmbedded) {
+    dctStats.innerHTML = `<span class="status-warn">No message embedded in DCT yet. Embed first.</span>`;
+    return;
+  }
   const head = extractBitsDct(dctState, 32);
   const packetLen = bytesToU32(bitsToBytes(head), 0);
   const total = (packetLen + 4) * 8;
@@ -1148,6 +1169,7 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
   order.sort((a, b) => adaptiveGradient[b] - adaptiveGradient[a]);
   const { stego, changed } = embedByOrder(coverImage, bits, order);
   adaptiveStego = stego;
+  adaptHasEmbedded = true;
   drawLocations(coverImage, changed, "adapt-locations");
   adaptStats.innerHTML = `Adaptive embedding wrote ${bits.length} bits, clustered in textured regions first.`;
 });
@@ -1166,11 +1188,16 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
   }
   const { stego, changed } = embedByOrder(coverImage, bits, order);
   sequentialStego = stego;
+  seqHasEmbedded = true;
   drawLocations(coverImage, changed, "seq-locations");
   adaptStats.innerHTML += " Sequential baseline plotted for comparison.";
 });
 
 (document.getElementById("adapt-compare") as HTMLButtonElement).addEventListener("click", () => {
+  if (!adaptHasEmbedded || !seqHasEmbedded) {
+    adaptStats.innerHTML = `<span class="status-warn">Run both adaptive and sequential embedding first.</span>`;
+    return;
+  }
   const adaptive = chiSquaredSteganalysis(adaptiveStego);
   const seq = chiSquaredSteganalysis(sequentialStego);
   adaptStats.innerHTML = `Same payload, different placement: sequential p=${seq.pValue.toExponential(3)}, adaptive p=${adaptive.pValue.toExponential(
