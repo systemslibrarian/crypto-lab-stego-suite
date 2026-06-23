@@ -1,4 +1,37 @@
-type ChiResult = { chi2: number; pValue: number; dof: number };
+import {
+  AES_OVERHEAD_BYTES,
+  bitsToBytes,
+  bytesToBits,
+  bytesToU32,
+  buildPacketBytes,
+  decodeTextPacket,
+  encodeTextPacket,
+  lsbPacketBytes,
+  makeLsbBody,
+  parseLsbBody,
+  parsePacketBytes
+} from "./lib/bits";
+import { decryptAesGcm, encryptAesGcm } from "./lib/crypto";
+import {
+  cloneImageData,
+  computeHistogram,
+  createSampleImageData,
+  distortion
+} from "./lib/image";
+import {
+  embedBitsSpatial,
+  embedByOrder,
+  extractBitsSpatial,
+  lsbCapacityBits
+} from "./lib/stego";
+import {
+  computeDctBlocks,
+  embedBitsDct,
+  extractBitsDct,
+  renderDctToImage,
+  type DctState
+} from "./lib/dct";
+import { chiSquaredSteganalysis, meanGradientAt, smoothFractionAt, sobelGradient } from "./lib/chi";
 
 type LsbPacket = {
   mode: "plain" | "encrypted";
@@ -24,6 +57,15 @@ app.innerHTML = `
         WOW-inspired adaptive embedding, and real chi-squared steganalysis.
       </p>
       <small>Encryption hides content; steganography hides existence. Strongest model: encrypt first, then hide.</small>
+      <div class="source-bar" role="group" aria-label="Cover image source">
+        <span class="source-label">Cover image (feeds every exhibit):</span>
+        <label class="file-btn">
+          <span>Upload your own…</span>
+          <input id="cover-upload" type="file" accept="image/*" hidden />
+        </label>
+        <button id="cover-sample" type="button" class="ghost">Use sample landscape</button>
+        <span id="cover-source-name" class="source-name" aria-live="polite">Sample landscape · 256×256</span>
+      </div>
     </header>
 
     <section class="exhibit" id="exhibit-1" aria-labelledby="exhibit-1-heading">
@@ -40,7 +82,7 @@ app.innerHTML = `
         </div>
         <div>
           <h3>Arms race</h3>
-          <p>LSB substitution ↔ chi-squared steganalysis (Westfeld & Pfitzmann 1999).</p>
+          <p>LSB substitution ↔ chi-squared steganalysis (Westfeld &amp; Pfitzmann 1999).</p>
           <p>F5 JPEG steganography ↔ calibration-family attacks (Fridrich et al.).</p>
           <p>Adaptive embedding ↔ ML steganalyzers (for example SRNet-class systems).</p>
         </div>
@@ -82,10 +124,19 @@ app.innerHTML = `
           <label for="lsb-encrypt"><input id="lsb-encrypt" type="checkbox" /> Encrypt before embedding (AES-256-GCM)</label>
         </div>
       </div>
+      <div class="capacity" role="group" aria-label="Payload capacity usage">
+        <div class="capacity-track"><div id="lsb-capacity-fill" class="capacity-fill"></div></div>
+        <small id="lsb-capacity-text">Capacity usage updates as you type.</small>
+      </div>
       <div class="controls" role="toolbar" aria-label="LSB embedding controls">
         <button id="lsb-embed" type="button">Embed message</button>
         <button id="lsb-extract" type="button">Extract message</button>
         <button id="lsb-download" type="button">Download stego PNG</button>
+        <label class="file-btn control-file">
+          <span>Extract from PNG…</span>
+          <input id="lsb-extract-file" type="file" accept="image/png" hidden />
+        </label>
+        <button id="lsb-reset" type="button" class="ghost">Reset</button>
       </div>
       <div class="stats" id="lsb-stats" aria-live="polite" role="status"></div>
       <div class="canvas-grid">
@@ -98,7 +149,7 @@ app.innerHTML = `
       </div>
       <div class="callout">
         <strong>Why this matters:</strong> LSB can fool human vision but introduces measurable statistical artifacts.
-        Visual similarity is not statistical similarity.
+        Visual similarity is not statistical similarity — watch the PSNR stay high while chi-squared still flags it.
       </div>
     </section>
 
@@ -106,7 +157,8 @@ app.innerHTML = `
       <h2 id="exhibit-3-heading">Exhibit 3 — Chi-Squared Steganalysis: Detecting LSB</h2>
       <p>
         Westfeld &amp; Pfitzmann (IH 1999) pair-value test over (0,1), (2,3), ..., (254,255). LSB embedding tends to equalize each pair.
-        This implementation computes a real chi-squared statistic and p-value with 127 degrees of freedom.
+        This implementation computes a real chi-squared statistic over 127 degrees of freedom and reports the
+        <strong>probability of embedding</strong> = <em>Q</em>(dof/2, χ²/2). Near 1 ⇒ the carrier looks LSB-embedded; near 0 ⇒ it looks like a natural cover.
       </p>
       <div class="controls" role="toolbar" aria-label="Chi-squared test controls">
         <button id="chi-test-cover" type="button">Test cover image</button>
@@ -118,7 +170,9 @@ app.innerHTML = `
       <div id="chi-curve" aria-live="polite"></div>
       <div class="callout">
         <strong>Why this matters:</strong> the test does not need the original cover image and runs quickly,
-        which is why naive LSB has been considered weak for adversarial use since 1999.
+        which is why naive LSB has been considered weak for adversarial use since 1999. Note its blind spot:
+        applied to the whole image it only fires reliably near full embedding — partial payloads stay near 0,
+        which is exactly why partial and adaptive embedding (and stronger detectors like RS, SPA, and ML) exist.
       </div>
     </section>
 
@@ -161,7 +215,7 @@ app.innerHTML = `
     <section class="exhibit" id="exhibit-5" aria-labelledby="exhibit-5-heading">
       <h2 id="exhibit-5-heading">Exhibit 5 — Adaptive Steganography (WOW-inspired)</h2>
       <p>
-        Educational simplification inspired by WOW (Holub & Fridrich, WIFS 2012): compute a texture map using Sobel gradients,
+        Educational simplification inspired by WOW (Holub &amp; Fridrich, WIFS 2012): compute a texture map using Sobel gradients,
         then embed first in low-cost (high-texture) locations and avoid smooth regions.
       </p>
       <div class="row">
@@ -250,43 +304,7 @@ function installThemeToggle(): void {
   });
 }
 
-function createSampleImageData(width: number, height: number): ImageData {
-  const data = new Uint8ClampedArray(width * height * 4);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const i = (y * width + x) * 4;
-      const t = y / height;
-      const nx = x / width;
-      const noise = pseudoNoise(x, y, SAMPLE_SEED);
-      const hills = Math.sin(nx * Math.PI * 6) * 0.5 + 0.5;
-      const skyMix = 0.58 - t;
-      let r = clampByte(40 + 95 * hills + 30 * noise + 70 * Math.max(0, skyMix));
-      let g = clampByte(65 + 110 * hills + 70 * t + 25 * noise);
-      let b = clampByte(90 + 80 * t + 20 * noise + 80 * Math.max(0, skyMix));
-
-      if (y > height * 0.58) {
-        const texture = pseudoNoise(x * 2, y * 2, SAMPLE_SEED + 9) * 60;
-        g = clampByte(g + texture);
-        r = clampByte(r + texture * 0.3);
-      }
-
-      data[i] = r;
-      data[i + 1] = g;
-      data[i + 2] = b;
-      data[i + 3] = 255;
-    }
-  }
-  return new ImageData(data, width, height);
-}
-
-function pseudoNoise(x: number, y: number, seed: number): number {
-  const v = Math.sin(x * 12.9898 + y * 78.233 + seed * 37.719) * 43758.5453;
-  return v - Math.floor(v);
-}
-
-function clampByte(v: number): number {
-  return Math.max(0, Math.min(255, Math.round(v)));
-}
+// --- Canvas / drawing helpers (DOM-specific; pure logic lives in src/lib) ---
 
 function getCtx(id: string): CanvasRenderingContext2D {
   const canvas = document.getElementById(id) as HTMLCanvasElement | null;
@@ -300,155 +318,12 @@ function getCtx(id: string): CanvasRenderingContext2D {
   return ctx;
 }
 
+function cssVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "currentColor";
+}
+
 function drawImageData(ctx: CanvasRenderingContext2D, image: ImageData): void {
   ctx.putImageData(image, 0, 0);
-}
-
-function cloneImageData(image: ImageData): ImageData {
-  return new ImageData(new Uint8ClampedArray(image.data), image.width, image.height);
-}
-
-function bytesToBits(bytes: Uint8Array): number[] {
-  const bits: number[] = [];
-  for (const b of bytes) {
-    for (let bit = 7; bit >= 0; bit -= 1) {
-      bits.push((b >> bit) & 1);
-    }
-  }
-  return bits;
-}
-
-function bitsToBytes(bits: number[]): Uint8Array {
-  const bytes = new Uint8Array(Math.ceil(bits.length / 8));
-  for (let i = 0; i < bits.length; i += 1) {
-    const byteIndex = Math.floor(i / 8);
-    bytes[byteIndex] = (bytes[byteIndex] << 1) | bits[i];
-    if (i % 8 === 7) {
-      continue;
-    }
-    if (i === bits.length - 1) {
-      bytes[byteIndex] <<= 7 - (i % 8);
-    }
-  }
-  return bytes;
-}
-
-function u32ToBytes(v: number): Uint8Array {
-  return new Uint8Array([(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255]);
-}
-
-function bytesToU32(bytes: Uint8Array, offset: number): number {
-  return ((bytes[offset] << 24) >>> 0) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
-}
-
-function buildPacketBytes(body: Uint8Array): Uint8Array {
-  const head = u32ToBytes(body.length);
-  const out = new Uint8Array(head.length + body.length);
-  out.set(head, 0);
-  out.set(body, 4);
-  return out;
-}
-
-function parsePacketBytes(packet: Uint8Array): Uint8Array {
-  const len = bytesToU32(packet, 0);
-  return packet.slice(4, 4 + len);
-}
-
-function makeLsbBody(mode: number, payload: Uint8Array): Uint8Array {
-  const len = u32ToBytes(payload.length);
-  const out = new Uint8Array(1 + 4 + payload.length);
-  out[0] = mode;
-  out.set(len, 1);
-  out.set(payload, 5);
-  return out;
-}
-
-function parseLsbBody(body: Uint8Array): { mode: number; payload: Uint8Array } {
-  const mode = body[0] ?? 0;
-  const payloadLen = bytesToU32(body, 1);
-  return { mode, payload: body.slice(5, 5 + payloadLen) };
-}
-
-function lsbCapacityBits(image: ImageData): number {
-  return image.width * image.height * 3;
-}
-
-function embedBitsSpatial(
-  image: ImageData,
-  bits: number[]
-): { stego: ImageData; firstChange: { valueBefore: number; valueAfter: number; bit: number; x: number; y: number } | null } {
-  const copy = cloneImageData(image);
-  const data = copy.data;
-  let bitIndex = 0;
-  let firstChange: { valueBefore: number; valueAfter: number; bit: number; x: number; y: number } | null = null;
-
-  for (let i = 0; i < data.length && bitIndex < bits.length; i += 1) {
-    if (i % 4 === 3) {
-      continue;
-    }
-    const before = data[i];
-    const bit = bits[bitIndex];
-    const after = (before & 0xfe) | bit;
-    data[i] = after;
-    if (!firstChange && before !== after) {
-      const px = Math.floor((i / 4) % image.width);
-      const py = Math.floor(i / 4 / image.width);
-      firstChange = { valueBefore: before, valueAfter: after, bit, x: px, y: py };
-    }
-    bitIndex += 1;
-  }
-
-  return { stego: copy, firstChange };
-}
-
-function extractBitsSpatial(image: ImageData, bitCount: number): number[] {
-  const bits: number[] = [];
-  const data = image.data;
-  for (let i = 0; i < data.length && bits.length < bitCount; i += 1) {
-    if (i % 4 === 3) {
-      continue;
-    }
-    bits.push(data[i] & 1);
-  }
-  return bits;
-}
-
-async function encryptAesGcm(message: string, passphrase: string): Promise<Uint8Array> {
-  const encoder = new TextEncoder();
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const keyMaterial = await crypto.subtle.importKey("raw", encoder.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
-  const key = await crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 120_000, hash: "SHA-256" },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt"]
-  );
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(message)));
-  const packed = new Uint8Array(16 + 12 + ciphertext.length);
-  packed.set(salt, 0);
-  packed.set(iv, 16);
-  packed.set(ciphertext, 28);
-  return packed;
-}
-
-async function decryptAesGcm(payload: Uint8Array, passphrase: string): Promise<string> {
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
-  const salt = payload.slice(0, 16);
-  const iv = payload.slice(16, 28);
-  const ciphertext = payload.slice(28);
-  const keyMaterial = await crypto.subtle.importKey("raw", encoder.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
-  const key = await crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 120_000, hash: "SHA-256" },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["decrypt"]
-  );
-  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
-  return decoder.decode(plain);
 }
 
 function drawZoom(source: ImageData, targetCanvasId: string, startX: number, startY: number): void {
@@ -482,24 +357,13 @@ function drawZoom(source: ImageData, targetCanvasId: string, startX: number, sta
   targetCtx.drawImage(temp, 0, 0, 200, 200);
 }
 
-function computeHistogram(image: ImageData): number[] {
-  const hist = new Array<number>(256).fill(0);
-  const d = image.data;
-  for (let i = 0; i < d.length; i += 4) {
-    hist[d[i]] += 1;
-    hist[d[i + 1]] += 1;
-    hist[d[i + 2]] += 1;
-  }
-  return hist;
-}
-
 function drawHistogram(hist: number[], canvasId: string): void {
   const ctx = getCtx(canvasId);
   const w = ctx.canvas.width;
   const h = ctx.canvas.height;
   ctx.clearRect(0, 0, w, h);
   const max = Math.max(...hist, 1);
-  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim() || "currentColor";
+  ctx.fillStyle = cssVar("--accent-2");
   for (let i = 0; i < 256; i += 1) {
     const x = (i / 256) * w;
     const barH = (hist[i] / max) * (h - 8);
@@ -507,82 +371,51 @@ function drawHistogram(hist: number[], canvasId: string): void {
   }
 }
 
-function chiSquaredSteganalysis(image: ImageData): ChiResult {
-  const hist = computeHistogram(image);
-  let chi2 = 0;
-  for (let k = 0; k < 128; k += 1) {
-    const a = hist[2 * k];
-    const b = hist[2 * k + 1];
-    const e = (a + b) / 2;
-    if (e > 0) {
-      chi2 += ((a - e) * (a - e)) / e;
-      chi2 += ((b - e) * (b - e)) / e;
+function drawChiPlot(canvasId: string, chi2: number, dof: number): void {
+  const ctx = getCtx(canvasId);
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+  const maxX = dof * 2.5;
+  const step = maxX / w;
+  const pdf = (x: number): number => {
+    if (x <= 0) {
+      return 0;
+    }
+    const k = dof / 2;
+    const log = (k - 1) * Math.log(x) - x / 2 - k * Math.log(2) - gammlnLocal(k);
+    return Math.exp(log);
+  };
+
+  let peak = 0;
+  for (let x = 0.001; x <= maxX; x += step) {
+    peak = Math.max(peak, pdf(x));
+  }
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = cssVar("--accent-2");
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let px = 0; px < w; px += 1) {
+    const x = px * step;
+    const y = h - (pdf(x) / peak) * (h - 20) - 10;
+    if (px === 0) {
+      ctx.moveTo(px, y);
+    } else {
+      ctx.lineTo(px, y);
     }
   }
-  const dof = 127;
-  const pValue = gammaQ(dof / 2, chi2 / 2);
-  return { chi2, pValue, dof };
+  ctx.stroke();
+
+  const markerX = Math.max(0, Math.min(w - 1, (chi2 / maxX) * w));
+  ctx.strokeStyle = cssVar("--danger");
+  ctx.beginPath();
+  ctx.moveTo(markerX, 8);
+  ctx.lineTo(markerX, h - 8);
+  ctx.stroke();
 }
 
-function gammaQ(a: number, x: number): number {
-  if (x < 0 || a <= 0) {
-    return Number.NaN;
-  }
-  if (x < a + 1) {
-    return 1 - gammaPSeries(a, x);
-  }
-  return gammaQCF(a, x);
-}
-
-function gammaPSeries(a: number, x: number): number {
-  const itmax = 100;
-  const eps = 3e-7;
-  let sum = 1 / a;
-  let del = sum;
-  let ap = a;
-  for (let n = 1; n <= itmax; n += 1) {
-    ap += 1;
-    del *= x / ap;
-    sum += del;
-    if (Math.abs(del) < Math.abs(sum) * eps) {
-      return sum * Math.exp(-x + a * Math.log(x) - gammln(a));
-    }
-  }
-  return sum * Math.exp(-x + a * Math.log(x) - gammln(a));
-}
-
-function gammaQCF(a: number, x: number): number {
-  const itmax = 100;
-  const eps = 3e-7;
-  const fpmin = 1e-30;
-  let b = x + 1 - a;
-  let c = 1 / fpmin;
-  let d = 1 / b;
-  let h = d;
-
-  for (let i = 1; i <= itmax; i += 1) {
-    const an = -i * (i - a);
-    b += 2;
-    d = an * d + b;
-    if (Math.abs(d) < fpmin) {
-      d = fpmin;
-    }
-    c = b + an / c;
-    if (Math.abs(c) < fpmin) {
-      c = fpmin;
-    }
-    d = 1 / d;
-    const del = d * c;
-    h *= del;
-    if (Math.abs(del - 1) < eps) {
-      break;
-    }
-  }
-
-  return Math.exp(-x + a * Math.log(x) - gammln(a)) * h;
-}
-
-function gammln(xx: number): number {
+// Local copy of the log-gamma used only for plotting the chi-squared PDF curve.
+function gammlnLocal(xx: number): number {
   const cof = [
     76.18009172947146,
     -86.50532032941677,
@@ -600,219 +433,6 @@ function gammln(xx: number): number {
     ser += cof[j] / x;
   }
   return -tmp + Math.log(2.5066282746310005 * ser);
-}
-
-function drawChiPlot(canvasId: string, chi2: number, dof: number): void {
-  const ctx = getCtx(canvasId);
-  const w = ctx.canvas.width;
-  const h = ctx.canvas.height;
-  const maxX = dof * 2.5;
-  const step = maxX / w;
-  const pdf = (x: number): number => {
-    if (x <= 0) {
-      return 0;
-    }
-    const k = dof / 2;
-    const log = (k - 1) * Math.log(x) - x / 2 - k * Math.log(2) - gammln(k);
-    return Math.exp(log);
-  };
-
-  let peak = 0;
-  for (let x = 0.001; x <= maxX; x += step) {
-    peak = Math.max(peak, pdf(x));
-  }
-
-  ctx.clearRect(0, 0, w, h);
-  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim() || "currentColor";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let px = 0; px < w; px += 1) {
-    const x = px * step;
-    const y = h - (pdf(x) / peak) * (h - 20) - 10;
-    if (px === 0) {
-      ctx.moveTo(px, y);
-    } else {
-      ctx.lineTo(px, y);
-    }
-  }
-  ctx.stroke();
-
-  const markerX = Math.max(0, Math.min(w - 1, (chi2 / maxX) * w));
-  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--danger").trim() || "currentColor";
-  ctx.beginPath();
-  ctx.moveTo(markerX, 8);
-  ctx.lineTo(markerX, h - 8);
-  ctx.stroke();
-}
-
-function imageToLuma(image: ImageData): Float64Array {
-  const luma = new Float64Array(image.width * image.height);
-  for (let i = 0, p = 0; i < image.data.length; i += 4, p += 1) {
-    const r = image.data[i];
-    const g = image.data[i + 1];
-    const b = image.data[i + 2];
-    luma[p] = 0.299 * r + 0.587 * g + 0.114 * b;
-  }
-  return luma;
-}
-
-function dct2(block: number[][]): number[][] {
-  const out = Array.from({ length: 8 }, () => new Array<number>(8).fill(0));
-  for (let u = 0; u < 8; u += 1) {
-    for (let v = 0; v < 8; v += 1) {
-      const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
-      const cv = v === 0 ? 1 / Math.sqrt(2) : 1;
-      let sum = 0;
-      for (let x = 0; x < 8; x += 1) {
-        for (let y = 0; y < 8; y += 1) {
-          sum +=
-            block[y][x] *
-            Math.cos(((2 * x + 1) * u * Math.PI) / 16) *
-            Math.cos(((2 * y + 1) * v * Math.PI) / 16);
-        }
-      }
-      out[v][u] = 0.25 * cu * cv * sum;
-    }
-  }
-  return out;
-}
-
-function idct2(coeff: number[][]): number[][] {
-  const out = Array.from({ length: 8 }, () => new Array<number>(8).fill(0));
-  for (let y = 0; y < 8; y += 1) {
-    for (let x = 0; x < 8; x += 1) {
-      let sum = 0;
-      for (let u = 0; u < 8; u += 1) {
-        for (let v = 0; v < 8; v += 1) {
-          const cu = u === 0 ? 1 / Math.sqrt(2) : 1;
-          const cv = v === 0 ? 1 / Math.sqrt(2) : 1;
-          sum +=
-            cu *
-            cv *
-            coeff[v][u] *
-            Math.cos(((2 * x + 1) * u * Math.PI) / 16) *
-            Math.cos(((2 * y + 1) * v * Math.PI) / 16);
-        }
-      }
-      out[y][x] = 0.25 * sum;
-    }
-  }
-  return out;
-}
-
-const zigzag: Array<[number, number]> = [
-  [0, 1], [1, 0], [2, 0], [1, 1], [0, 2], [0, 3], [1, 2], [2, 1], [3, 0], [4, 0], [3, 1], [2, 2], [1, 3],
-  [0, 4], [0, 5], [1, 4], [2, 3], [3, 2], [4, 1], [5, 0], [6, 0], [5, 1], [4, 2], [3, 3], [2, 4], [1, 5],
-  [0, 6], [0, 7], [1, 6], [2, 5], [3, 4], [4, 3], [5, 2], [6, 1], [7, 0], [7, 1], [6, 2], [5, 3], [4, 4],
-  [3, 5], [2, 6], [1, 7], [2, 7], [3, 6], [4, 5], [5, 4], [6, 3], [7, 2], [7, 3], [6, 4], [5, 5], [4, 6],
-  [3, 7], [4, 7], [5, 6], [6, 5], [7, 4], [7, 5], [6, 6], [5, 7], [6, 7], [7, 6], [7, 7]
-];
-
-type DctState = {
-  blocks: number[][][];
-  blocksX: number;
-  blocksY: number;
-  width: number;
-  height: number;
-  modified: Set<string>;
-  embedded: boolean;
-};
-
-function computeDctBlocks(image: ImageData): DctState {
-  const luma = imageToLuma(image);
-  const blocksX = Math.floor(image.width / 8);
-  const blocksY = Math.floor(image.height / 8);
-  const blocks: number[][][] = [];
-
-  for (let by = 0; by < blocksY; by += 1) {
-    for (let bx = 0; bx < blocksX; bx += 1) {
-      const block = Array.from({ length: 8 }, () => new Array<number>(8).fill(0));
-      for (let y = 0; y < 8; y += 1) {
-        for (let x = 0; x < 8; x += 1) {
-          const px = bx * 8 + x;
-          const py = by * 8 + y;
-          block[y][x] = luma[py * image.width + px] - 128;
-        }
-      }
-      blocks.push(dct2(block));
-    }
-  }
-
-  return { blocks, blocksX, blocksY, width: image.width, height: image.height, modified: new Set(), embedded: false };
-}
-
-function embedBitsDct(state: DctState, bits: number[]): number {
-  let bitIndex = 0;
-  state.modified.clear();
-
-  for (let bi = 0; bi < state.blocks.length && bitIndex < bits.length; bi += 1) {
-    const block = state.blocks[bi];
-    for (const [x, y] of zigzag) {
-      if (bitIndex >= bits.length) {
-        break;
-      }
-      let c = Math.round(block[y][x]);
-      if (c === 0) {
-        continue;
-      }
-      const desired = bits[bitIndex];
-      const parity = Math.abs(c) % 2;
-      if (parity !== desired) {
-        c = c > 0 ? c + 1 : c - 1;
-        if (c === 0) {
-          c = desired === 1 ? 1 : -1;
-        }
-        block[y][x] = c;
-        state.modified.add(`${bi}:${x}:${y}`);
-      }
-      bitIndex += 1;
-    }
-  }
-
-  state.embedded = bitIndex === bits.length;
-  return bitIndex;
-}
-
-function extractBitsDct(state: DctState, bitCount: number): number[] {
-  const bits: number[] = [];
-  for (let bi = 0; bi < state.blocks.length && bits.length < bitCount; bi += 1) {
-    const block = state.blocks[bi];
-    for (const [x, y] of zigzag) {
-      if (bits.length >= bitCount) {
-        break;
-      }
-      const c = Math.round(block[y][x]);
-      if (c === 0) {
-        continue;
-      }
-      bits.push(Math.abs(c) % 2);
-    }
-  }
-  return bits;
-}
-
-function renderDctToImage(state: DctState): ImageData {
-  const out = new ImageData(state.width, state.height);
-  let bi = 0;
-  for (let by = 0; by < state.blocksY; by += 1) {
-    for (let bx = 0; bx < state.blocksX; bx += 1) {
-      const spatial = idct2(state.blocks[bi]);
-      for (let y = 0; y < 8; y += 1) {
-        for (let x = 0; x < 8; x += 1) {
-          const px = bx * 8 + x;
-          const py = by * 8 + y;
-          const idx = (py * state.width + px) * 4;
-          const v = clampByte(spatial[y][x] + 128);
-          out.data[idx] = v;
-          out.data[idx + 1] = v;
-          out.data[idx + 2] = v;
-          out.data[idx + 3] = 255;
-        }
-      }
-      bi += 1;
-    }
-  }
-  return out;
 }
 
 function drawDctHeatmap(canvasId: string, coeff: number[][], modified: Set<string>, blockIndex: number): void {
@@ -834,40 +454,10 @@ function drawDctHeatmap(canvasId: string, coeff: number[][], modified: Set<strin
       ctx.fillStyle = `hsl(200 70% ${light}%)`;
       ctx.fillRect(x * cell, y * cell, cell, cell);
       const key = `${blockIndex}:${x}:${y}`;
-      ctx.strokeStyle = modified.has(key)
-        ? getComputedStyle(document.documentElement).getPropertyValue("--danger").trim() || "currentColor"
-        : getComputedStyle(document.documentElement).getPropertyValue("--border").trim() || "currentColor";
+      ctx.strokeStyle = modified.has(key) ? cssVar("--danger") : cssVar("--border");
       ctx.strokeRect(x * cell, y * cell, cell, cell);
     }
   }
-}
-
-function sobelGradient(image: ImageData): Float64Array {
-  const w = image.width;
-  const h = image.height;
-  const luma = imageToLuma(image);
-  const out = new Float64Array(w * h);
-  const gx = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
-  const gy = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
-
-  for (let y = 1; y < h - 1; y += 1) {
-    for (let x = 1; x < w - 1; x += 1) {
-      let sx = 0;
-      let sy = 0;
-      let ki = 0;
-      for (let j = -1; j <= 1; j += 1) {
-        for (let i = -1; i <= 1; i += 1) {
-          const v = luma[(y + j) * w + (x + i)];
-          sx += v * gx[ki];
-          sy += v * gy[ki];
-          ki += 1;
-        }
-      }
-      out[y * w + x] = Math.hypot(sx, sy);
-    }
-  }
-
-  return out;
 }
 
 function drawCostMap(gradient: Float64Array, image: ImageData, canvasId: string): void {
@@ -884,8 +474,8 @@ function drawCostMap(gradient: Float64Array, image: ImageData, canvasId: string)
 
   for (let i = 0; i < gradient.length; i += 1) {
     const t = gradient[i] / max;
-    const red = clampByte((1 - t) * 230);
-    const green = clampByte(t * 220);
+    const red = clamp255((1 - t) * 230);
+    const green = clamp255(t * 220);
     const baseIdx = i * 4;
     out.data[baseIdx] = red;
     out.data[baseIdx + 1] = green;
@@ -896,22 +486,10 @@ function drawCostMap(gradient: Float64Array, image: ImageData, canvasId: string)
   ctx.putImageData(out, 0, 0);
 }
 
-function embedByOrder(image: ImageData, bits: number[], order: Uint32Array): { stego: ImageData; changed: Uint32Array } {
-  const copy = cloneImageData(image);
-  const changed = new Uint32Array(bits.length);
-  for (let i = 0; i < bits.length; i += 1) {
-    const p = order[i];
-    const idx = p * 4 + 2;
-    copy.data[idx] = (copy.data[idx] & 0xfe) | bits[i];
-    changed[i] = p;
-  }
-  return { stego: copy, changed };
-}
-
 function drawLocations(base: ImageData, changed: Uint32Array, canvasId: string): void {
   const ctx = getCtx(canvasId);
   ctx.putImageData(base, 0, 0);
-  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--danger").trim() || "currentColor";
+  ctx.fillStyle = cssVar("--danger");
   for (let i = 0; i < changed.length; i += 1) {
     const p = changed[i];
     const x = p % base.width;
@@ -920,60 +498,262 @@ function drawLocations(base: ImageData, changed: Uint32Array, canvasId: string):
   }
 }
 
-function encodeTextPacket(text: string): number[] {
-  const bytes = new TextEncoder().encode(text);
-  return bytesToBits(buildPacketBytes(bytes));
+function clamp255(v: number): number {
+  return Math.max(0, Math.min(255, Math.round(v)));
 }
 
-function decodeTextPacket(bits: number[]): string {
-  const packetLenBytes = bitsToBytes(bits.slice(0, 32));
-  const packetLen = bytesToU32(packetLenBytes, 0);
-  const totalBits = (packetLen + 4) * 8;
-  const packetBytes = bitsToBytes(bits.slice(0, totalBits));
-  const body = parsePacketBytes(packetBytes);
-  return new TextDecoder().decode(body);
-}
+// --- Cover image state, shared by every exhibit ---
+
+let coverImage = createSampleImageData(CANVAS_SIZE, CANVAS_SIZE, SAMPLE_SEED);
+let lsbStegoImage = cloneImageData(coverImage);
+let dctState: DctState = computeDctBlocks(coverImage);
+let dctStegoImage = cloneImageData(coverImage);
+let adaptiveGradient = sobelGradient(coverImage);
+let adaptiveStego = cloneImageData(coverImage);
+let sequentialStego = cloneImageData(coverImage);
+let adaptiveChanged: Uint32Array = new Uint32Array(0);
+let sequentialChanged: Uint32Array = new Uint32Array(0);
 
 let lsbHasEmbedded = false;
 let dctHasEmbedded = false;
 let adaptHasEmbedded = false;
 let seqHasEmbedded = false;
 
-const coverImage = createSampleImageData(CANVAS_SIZE, CANVAS_SIZE);
-let lsbStegoImage = cloneImageData(coverImage);
-let dctState = computeDctBlocks(coverImage);
-let dctStegoImage = cloneImageData(coverImage);
-let adaptiveGradient = sobelGradient(coverImage);
-let adaptiveStego = cloneImageData(coverImage);
-let sequentialStego = cloneImageData(coverImage);
-
 const lsbCoverCtx = getCtx("lsb-cover");
 const lsbStegoCtx = getCtx("lsb-stego");
-drawImageData(lsbCoverCtx, coverImage);
-drawImageData(lsbStegoCtx, lsbStegoImage);
-drawZoom(coverImage, "lsb-zoom-cover", 80, 80);
-drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);
-drawHistogram(computeHistogram(coverImage), "lsb-hist-cover");
-drawHistogram(computeHistogram(lsbStegoImage), "lsb-hist-stego");
-
 const dctImageCtx = getCtx("dct-image");
-drawImageData(dctImageCtx, dctStegoImage);
-drawCostMap(adaptiveGradient, coverImage, "adapt-map-canvas");
-drawLocations(coverImage, new Uint32Array(0), "adapt-locations");
-drawLocations(coverImage, new Uint32Array(0), "seq-locations");
-
-drawChiPlot("chi-plot", 127, 127);
 
 const lsbStats = document.getElementById("lsb-stats") as HTMLDivElement;
 const chiResults = document.getElementById("chi-results") as HTMLDivElement;
 const chiCurve = document.getElementById("chi-curve") as HTMLDivElement;
 const dctStats = document.getElementById("dct-stats") as HTMLDivElement;
 const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
+const coverSourceName = document.getElementById("cover-source-name") as HTMLSpanElement;
+const capacityFill = document.getElementById("lsb-capacity-fill") as HTMLDivElement;
+const capacityText = document.getElementById("lsb-capacity-text") as HTMLElement;
 
-(document.getElementById("lsb-embed") as HTMLButtonElement).addEventListener("click", async () => {
-  const message = (document.getElementById("lsb-message") as HTMLTextAreaElement).value;
-  const encrypt = (document.getElementById("lsb-encrypt") as HTMLInputElement).checked;
-  const passphrase = (document.getElementById("lsb-passphrase") as HTMLInputElement).value;
+const lsbMessageEl = document.getElementById("lsb-message") as HTMLTextAreaElement;
+const lsbEncryptEl = document.getElementById("lsb-encrypt") as HTMLInputElement;
+const lsbPassphraseEl = document.getElementById("lsb-passphrase") as HTMLInputElement;
+
+function redrawAll(): void {
+  drawImageData(lsbCoverCtx, coverImage);
+  drawImageData(lsbStegoCtx, lsbStegoImage);
+  drawZoom(coverImage, "lsb-zoom-cover", 80, 80);
+  drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);
+  drawHistogram(computeHistogram(coverImage), "lsb-hist-cover");
+  drawHistogram(computeHistogram(lsbStegoImage), "lsb-hist-stego");
+  drawImageData(dctImageCtx, dctStegoImage);
+  drawCostMap(adaptiveGradient, coverImage, "adapt-map-canvas");
+  drawLocations(coverImage, new Uint32Array(0), "adapt-locations");
+  drawLocations(coverImage, new Uint32Array(0), "seq-locations");
+  drawChiPlot("chi-plot", 127, 127);
+}
+
+/** Reset every exhibit's derived state to a fresh cover image. */
+function setCoverImage(image: ImageData, sourceLabel: string): void {
+  coverImage = image;
+  lsbStegoImage = cloneImageData(coverImage);
+  dctState = computeDctBlocks(coverImage);
+  dctStegoImage = cloneImageData(coverImage);
+  adaptiveGradient = sobelGradient(coverImage);
+  adaptiveStego = cloneImageData(coverImage);
+  sequentialStego = cloneImageData(coverImage);
+  lsbHasEmbedded = false;
+  dctHasEmbedded = false;
+  adaptHasEmbedded = false;
+  seqHasEmbedded = false;
+
+  coverSourceName.textContent = `${sourceLabel} · ${coverImage.width}×${coverImage.height}`;
+  redrawAll();
+  getCtx("dct-before").clearRect(0, 0, 240, 240);
+  getCtx("dct-after").clearRect(0, 0, 240, 240);
+  lsbStats.textContent = "";
+  chiResults.textContent = "";
+  chiCurve.textContent = "";
+  dctStats.textContent = "";
+  adaptStats.textContent = "";
+  updateCapacityMeter();
+}
+
+/** Scale + center-crop an arbitrary image to a square cover of the given size. */
+async function fileToCoverImage(file: File, size: number): Promise<ImageData> {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Could not get a 2D context for image import.");
+  }
+  const scale = Math.max(size / bitmap.width, size / bitmap.height);
+  const drawW = bitmap.width * scale;
+  const drawH = bitmap.height * scale;
+  ctx.drawImage(bitmap, (size - drawW) / 2, (size - drawH) / 2, drawW, drawH);
+  bitmap.close();
+  return ctx.getImageData(0, 0, size, size);
+}
+
+/** Decode a PNG to ImageData at its natural size, preserving exact pixels for extraction. */
+async function fileToExactImage(file: File): Promise<ImageData> {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Could not get a 2D context for image import.");
+  }
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+}
+
+// --- Initial render ---
+
+redrawAll();
+
+// --- Capacity meter ---
+
+function utf8Length(text: string): number {
+  return new TextEncoder().encode(text).length;
+}
+
+function updateCapacityMeter(): void {
+  const message = lsbMessageEl.value;
+  const encrypt = lsbEncryptEl.checked;
+  const payloadBytes = encrypt ? AES_OVERHEAD_BYTES + utf8Length(message) : utf8Length(message);
+  const neededBits = lsbPacketBytes(payloadBytes) * 8;
+  const capacity = lsbCapacityBits(coverImage);
+  const ratio = capacity > 0 ? neededBits / capacity : 1;
+  const pct = Math.min(100, ratio * 100);
+  capacityFill.style.width = `${pct}%`;
+  capacityFill.classList.toggle("over", neededBits > capacity);
+  const overBudget = neededBits > capacity;
+  capacityText.innerHTML = overBudget
+    ? `<span class="status-warn">Payload needs ${neededBits.toLocaleString()} bits but only ${capacity.toLocaleString()} are available.</span>`
+    : `Payload ${neededBits.toLocaleString()} bits of ${capacity.toLocaleString()} available (${pct.toFixed(2)}%)${
+        encrypt ? " · includes AES salt/IV/tag overhead" : ""
+      }.`;
+}
+
+lsbMessageEl.addEventListener("input", updateCapacityMeter);
+lsbEncryptEl.addEventListener("change", updateCapacityMeter);
+updateCapacityMeter();
+
+// --- Async busy-state helper ---
+
+async function withBusy<T>(button: HTMLButtonElement, busyLabel: string, fn: () => Promise<T> | T): Promise<T> {
+  const original = button.textContent;
+  button.disabled = true;
+  button.dataset.busy = "true";
+  button.textContent = busyLabel;
+  try {
+    return await fn();
+  } finally {
+    button.disabled = false;
+    delete button.dataset.busy;
+    button.textContent = original;
+  }
+}
+
+function escapeHtml(input: string): string {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+/** Render a recovered message with a copy-to-clipboard affordance. */
+function renderRecovered(target: HTMLElement, message: string, suffix: string): void {
+  target.innerHTML = `Recovered: <strong>${escapeHtml(message)}</strong> <button type="button" class="copy-btn" data-copy="${escapeHtml(
+    message
+  )}">Copy</button><br/>${suffix}`;
+  const btn = target.querySelector(".copy-btn") as HTMLButtonElement | null;
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(message);
+        btn.textContent = "Copied ✓";
+        window.setTimeout(() => {
+          btn.textContent = "Copy";
+        }, 1500);
+      } catch {
+        btn.textContent = "Copy failed";
+      }
+    });
+  }
+}
+
+type ParsedLsb = { mode: number; payload: Uint8Array };
+
+/** Safely read an LSB packet out of an image, guarding against non-stego carriers. */
+function readLsbPacket(image: ImageData): ParsedLsb | { error: string } {
+  const capacity = lsbCapacityBits(image);
+  const headerBits = extractBitsSpatial(image, 32);
+  const packetLen = bytesToU32(bitsToBytes(headerBits), 0);
+  if (packetLen <= 0 || (packetLen + 4) * 8 > capacity) {
+    return { error: "No valid hidden packet found in this image." };
+  }
+  const totalBits = (packetLen + 4) * 8;
+  const bits = extractBitsSpatial(image, totalBits);
+  const packet = bitsToBytes(bits);
+  const body = parsePacketBytes(packet);
+  const parsed = parseLsbBody(body);
+  if (parsed.payload.length + 5 > body.length) {
+    return { error: "Hidden packet is malformed or truncated." };
+  }
+  return parsed;
+}
+
+async function decodeLsbPacket(parsed: ParsedLsb): Promise<{ packet: LsbPacket } | { error: string }> {
+  if (parsed.mode === 1) {
+    const passphrase = lsbPassphraseEl.value;
+    if (!passphrase) {
+      return { error: "Encrypted payload found: enter the passphrase to decrypt." };
+    }
+    try {
+      const message = await decryptAesGcm(parsed.payload, passphrase);
+      return { packet: { mode: "encrypted", message, passphraseUsed: true } };
+    } catch {
+      return { error: "Decryption failed. Check the passphrase." };
+    }
+  }
+  return { packet: { mode: "plain", message: new TextDecoder().decode(parsed.payload), passphraseUsed: false } };
+}
+
+// --- Cover source controls ---
+
+(document.getElementById("cover-sample") as HTMLButtonElement).addEventListener("click", () => {
+  setCoverImage(createSampleImageData(CANVAS_SIZE, CANVAS_SIZE, SAMPLE_SEED), "Sample landscape");
+});
+
+(document.getElementById("cover-upload") as HTMLInputElement).addEventListener("change", async (event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    return;
+  }
+  try {
+    const image = await fileToCoverImage(file, CANVAS_SIZE);
+    setCoverImage(image, `Uploaded: ${file.name}`);
+  } catch {
+    coverSourceName.innerHTML = `<span class="status-warn">Could not load that image. Try a PNG or JPEG.</span>`;
+  } finally {
+    input.value = "";
+  }
+});
+
+// --- LSB exhibit ---
+
+const lsbEmbedBtn = document.getElementById("lsb-embed") as HTMLButtonElement;
+lsbEmbedBtn.addEventListener("click", async () => {
+  const message = lsbMessageEl.value;
+  const encrypt = lsbEncryptEl.checked;
+  const passphrase = lsbPassphraseEl.value;
 
   if (!message) {
     lsbStats.innerHTML = `<span class="status-warn">Provide a message first.</span>`;
@@ -985,76 +765,61 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
     return;
   }
 
-  const plainBytes = new TextEncoder().encode(message);
-  const payload = encrypt ? await encryptAesGcm(message, passphrase) : plainBytes;
-  const body = makeLsbBody(encrypt ? 1 : 0, payload);
-  const packet = buildPacketBytes(body);
-  const bits = bytesToBits(packet);
-  const capacity = lsbCapacityBits(coverImage);
+  await withBusy(lsbEmbedBtn, "Embedding…", async () => {
+    const plainBytes = new TextEncoder().encode(message);
+    const payload = encrypt ? await encryptAesGcm(message, passphrase) : plainBytes;
+    const body = makeLsbBody(encrypt ? 1 : 0, payload);
+    const packet = buildPacketBytes(body);
+    const bits = bytesToBits(packet);
+    const capacity = lsbCapacityBits(coverImage);
 
-  if (bits.length > capacity) {
-    lsbStats.innerHTML = `<span class="status-warn">Payload too large: ${bits.length} bits required, ${capacity} bits available.</span>`;
-    return;
-  }
+    if (bits.length > capacity) {
+      lsbStats.innerHTML = `<span class="status-warn">Payload too large: ${bits.length} bits required, ${capacity} bits available.</span>`;
+      return;
+    }
 
-  const result = embedBitsSpatial(coverImage, bits);
-  lsbStegoImage = result.stego;
-  lsbHasEmbedded = true;
-  drawImageData(lsbStegoCtx, lsbStegoImage);
-  drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);
-  drawHistogram(computeHistogram(lsbStegoImage), "lsb-hist-stego");
+    const result = embedBitsSpatial(coverImage, bits);
+    lsbStegoImage = result.stego;
+    lsbHasEmbedded = true;
+    drawImageData(lsbStegoCtx, lsbStegoImage);
+    drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);
+    drawHistogram(computeHistogram(lsbStegoImage), "lsb-hist-stego");
 
-  const info = result.firstChange
-    ? `Pixel (${result.firstChange.x}, ${result.firstChange.y}) channel before ${result.firstChange.valueBefore} (LSB ${result.firstChange.valueBefore & 1}), after ${result.firstChange.valueAfter} (LSB ${result.firstChange.valueAfter & 1}), payload bit ${result.firstChange.bit}.`
-    : "No first-change sample available (all initial bits matched existing LSBs).";
+    const metrics = distortion(coverImage, lsbStegoImage);
+    const psnrText = metrics.psnr === Infinity ? "∞ (identical)" : `${metrics.psnr.toFixed(2)} dB`;
+    const info = result.firstChange
+      ? `Pixel (${result.firstChange.x}, ${result.firstChange.y}) channel before ${result.firstChange.valueBefore} (LSB ${result.firstChange.valueBefore & 1}), after ${result.firstChange.valueAfter} (LSB ${result.firstChange.valueAfter & 1}), payload bit ${result.firstChange.bit}.`
+      : "No first-change sample available (all initial bits matched existing LSBs).";
 
-  lsbStats.innerHTML = `
-    <div>Payload: ${plainBytes.length} bytes plaintext, ${payload.length} bytes stored. Capacity: ${(capacity / 8).toFixed(0)} bytes.</div>
-    <div>Mode: ${encrypt ? "AES-256-GCM then steganography" : "Plaintext steganography"}.</div>
-    <div>${info}</div>
-  `;
+    lsbStats.innerHTML = `
+      <div>Payload: ${plainBytes.length} bytes plaintext, ${payload.length} bytes stored. Capacity: ${(capacity / 8).toFixed(0)} bytes.</div>
+      <div>Mode: ${encrypt ? "AES-256-GCM then steganography" : "Plaintext steganography"}.</div>
+      <div>Fidelity: PSNR ${psnrText}, max channel change ${metrics.maxDelta}, ${metrics.changedChannels.toLocaleString()} channels modified.</div>
+      <div>${info}</div>
+    `;
+  });
 });
 
-(document.getElementById("lsb-extract") as HTMLButtonElement).addEventListener("click", async () => {
+const lsbExtractBtn = document.getElementById("lsb-extract") as HTMLButtonElement;
+lsbExtractBtn.addEventListener("click", async () => {
   if (!lsbHasEmbedded) {
     lsbStats.innerHTML = `<span class="status-warn">No message embedded yet. Embed a message first.</span>`;
     return;
   }
-  const headerBits = extractBitsSpatial(lsbStegoImage, 32);
-  const packetLenBytes = bitsToBytes(headerBits);
-  const packetLen = bytesToU32(packetLenBytes, 0);
-  const totalBits = (packetLen + 4) * 8;
-  const bits = extractBitsSpatial(lsbStegoImage, totalBits);
-  const packet = bitsToBytes(bits);
-  const body = parsePacketBytes(packet);
-  const parsed = parseLsbBody(body);
-
-  let message = "";
-  let mode: LsbPacket["mode"] = "plain";
-  let passphraseUsed = false;
-
-  if (parsed.mode === 1) {
-    mode = "encrypted";
-    const passphrase = (document.getElementById("lsb-passphrase") as HTMLInputElement).value;
-    if (!passphrase) {
-      lsbStats.innerHTML = `<span class="status-warn">Encrypted payload found: enter passphrase to decrypt.</span>`;
+  await withBusy(lsbExtractBtn, "Extracting…", async () => {
+    const parsed = readLsbPacket(lsbStegoImage);
+    if ("error" in parsed) {
+      lsbStats.innerHTML = `<span class="status-warn">${parsed.error}</span>`;
       return;
     }
-    passphraseUsed = true;
-    try {
-      message = await decryptAesGcm(parsed.payload, passphrase);
-    } catch {
-      lsbStats.innerHTML = `<span class="status-warn">Decryption failed. Check passphrase.</span>`;
+    const decoded = await decodeLsbPacket(parsed);
+    if ("error" in decoded) {
+      lsbStats.innerHTML = `<span class="status-warn">${decoded.error}</span>`;
       return;
     }
-  } else {
-    message = new TextDecoder().decode(parsed.payload);
-  }
-
-  const packetInfo: LsbPacket = { mode, message, passphraseUsed };
-  lsbStats.innerHTML = `Recovered: <strong>${escapeHtml(packetInfo.message)}</strong><br/>Mode: ${packetInfo.mode}${
-    packetInfo.passphraseUsed ? " (passphrase used)" : ""
-  }`;
+    const { packet } = decoded;
+    renderRecovered(lsbStats, packet.message, `Mode: ${packet.mode}${packet.passphraseUsed ? " (passphrase used)" : ""}`);
+  });
 });
 
 (document.getElementById("lsb-download") as HTMLButtonElement).addEventListener("click", () => {
@@ -1072,14 +837,62 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
   a.click();
 });
 
+const lsbExtractFileEl = document.getElementById("lsb-extract-file") as HTMLInputElement;
+lsbExtractFileEl.addEventListener("change", async (event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) {
+    return;
+  }
+  try {
+    const image = await fileToExactImage(file);
+    const parsed = readLsbPacket(image);
+    if ("error" in parsed) {
+      lsbStats.innerHTML = `<span class="status-warn">${parsed.error} (Re-encoding to JPEG destroys LSBs — use the exact PNG this demo produced.)</span>`;
+      return;
+    }
+    const decoded = await decodeLsbPacket(parsed);
+    if ("error" in decoded) {
+      lsbStats.innerHTML = `<span class="status-warn">${decoded.error}</span>`;
+      return;
+    }
+    renderRecovered(
+      lsbStats,
+      decoded.packet.message,
+      `Extracted from uploaded PNG (${image.width}×${image.height}) · mode: ${decoded.packet.mode}`
+    );
+  } catch {
+    lsbStats.innerHTML = `<span class="status-warn">Could not read that PNG.</span>`;
+  } finally {
+    input.value = "";
+  }
+});
+
+(document.getElementById("lsb-reset") as HTMLButtonElement).addEventListener("click", () => {
+  lsbStegoImage = cloneImageData(coverImage);
+  lsbHasEmbedded = false;
+  drawImageData(lsbStegoCtx, lsbStegoImage);
+  drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);
+  drawHistogram(computeHistogram(lsbStegoImage), "lsb-hist-stego");
+  lsbStats.innerHTML = "Stego image reset to the current cover.";
+});
+
+// --- Chi-squared exhibit ---
+
+const DETECT_THRESHOLD = 0.5;
+
+function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof: number }): string {
+  const detected = res.pEmbed > DETECT_THRESHOLD;
+  return `
+    ${label}: χ²=${res.chi2.toFixed(2)}, probability of embedding=${(res.pEmbed * 100).toFixed(2)}%
+    <span class="${detected ? "status-warn" : "status-ok"}">${detected ? "✗ LSB embedding detected" : "✓ No LSB embedding detected"}</span>
+  `;
+}
+
 (document.getElementById("chi-test-cover") as HTMLButtonElement).addEventListener("click", () => {
   const res = chiSquaredSteganalysis(coverImage);
   drawChiPlot("chi-plot", res.chi2, res.dof);
-  const detected = res.pValue < 0.05;
-  chiResults.innerHTML = `
-    Cover test: χ²=${res.chi2.toFixed(2)}, p=${res.pValue.toExponential(3)}
-    <span class="${detected ? "status-warn" : "status-ok"}">${detected ? "✗ Steganography likely present" : "✓ No steganography detected"}</span>
-  `;
+  chiResults.innerHTML = renderChiResult("Cover test", res);
 });
 
 (document.getElementById("chi-test-stego") as HTMLButtonElement).addEventListener("click", () => {
@@ -1089,11 +902,7 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
   }
   const res = chiSquaredSteganalysis(lsbStegoImage);
   drawChiPlot("chi-plot", res.chi2, res.dof);
-  const detected = res.pValue < 0.05;
-  chiResults.innerHTML = `
-    Stego test: χ²=${res.chi2.toFixed(2)}, p=${res.pValue.toExponential(3)}
-    <span class="${detected ? "status-warn" : "status-ok"}">${detected ? "✗ Steganography likely present" : "✓ No steganography detected"}</span>
-  `;
+  chiResults.innerHTML = renderChiResult("Stego test", res);
 });
 
 (document.getElementById("chi-run-curve") as HTMLButtonElement).addEventListener("click", () => {
@@ -1105,10 +914,13 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
     const bits = bytesToBits(randomBytes).slice(0, bitCount);
     const stego = embedBitsSpatial(coverImage, bits).stego;
     const res = chiSquaredSteganalysis(stego);
-    return `<tr><td>${Math.round(r * 100)}%</td><td>${bitCount.toLocaleString()}</td><td>${res.chi2.toFixed(2)}</td><td>${res.pValue.toExponential(3)}</td></tr>`;
+    const flag = res.pEmbed > DETECT_THRESHOLD ? "✗ detected" : "✓ evades";
+    return `<tr><td>${Math.round(r * 100)}%</td><td>${bitCount.toLocaleString()}</td><td>${res.chi2.toFixed(2)}</td><td>${(res.pEmbed * 100).toFixed(2)}%</td><td>${flag}</td></tr>`;
   });
-  chiCurve.innerHTML = `<div class="table-wrap"><table><thead><tr><th scope="col">Payload rate</th><th scope="col">Bits</th><th scope="col">χ²</th><th scope="col">p-value</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+  chiCurve.innerHTML = `<div class="table-wrap"><table><thead><tr><th scope="col">Payload rate</th><th scope="col">Bits</th><th scope="col">χ²</th><th scope="col">P(embedding)</th><th scope="col">Verdict</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><small>Sequential whole-image embedding: the global test only flags the carrier as the payload nears full capacity.</small>`;
 });
+
+// --- DCT exhibit ---
 
 (document.getElementById("dct-transform") as HTMLButtonElement).addEventListener("click", () => {
   dctState = computeDctBlocks(coverImage);
@@ -1145,8 +957,10 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
   const total = (packetLen + 4) * 8;
   const bits = extractBitsDct(dctState, total);
   const message = decodeTextPacket(bits);
-  dctStats.innerHTML = `Recovered from DCT coefficient stream: <strong>${escapeHtml(message)}</strong>`;
+  renderRecovered(dctStats, message, "Recovered from the DCT coefficient stream.");
 });
+
+// --- Adaptive exhibit ---
 
 (document.getElementById("adapt-map") as HTMLButtonElement).addEventListener("click", () => {
   adaptiveGradient = sobelGradient(coverImage);
@@ -1169,6 +983,7 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
   order.sort((a, b) => adaptiveGradient[b] - adaptiveGradient[a]);
   const { stego, changed } = embedByOrder(coverImage, bits, order);
   adaptiveStego = stego;
+  adaptiveChanged = changed;
   adaptHasEmbedded = true;
   drawLocations(coverImage, changed, "adapt-locations");
   adaptStats.innerHTML = `Adaptive embedding wrote ${bits.length} bits, clustered in textured regions first.`;
@@ -1188,6 +1003,7 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
   }
   const { stego, changed } = embedByOrder(coverImage, bits, order);
   sequentialStego = stego;
+  sequentialChanged = changed;
   seqHasEmbedded = true;
   drawLocations(coverImage, changed, "seq-locations");
   adaptStats.innerHTML += " Sequential baseline plotted for comparison.";
@@ -1200,18 +1016,16 @@ const adaptStats = document.getElementById("adapt-stats") as HTMLDivElement;
   }
   const adaptive = chiSquaredSteganalysis(adaptiveStego);
   const seq = chiSquaredSteganalysis(sequentialStego);
-  adaptStats.innerHTML = `Same payload, different placement: sequential p=${seq.pValue.toExponential(3)}, adaptive p=${adaptive.pValue.toExponential(
-    3
-  )}. Higher p-value indicates reduced detectability, not invisibility.`;
+  const adaptTexture = meanGradientAt(adaptiveGradient, adaptiveChanged);
+  const seqTexture = meanGradientAt(adaptiveGradient, sequentialChanged);
+  const adaptSmooth = smoothFractionAt(adaptiveGradient, adaptiveChanged);
+  const seqSmooth = smoothFractionAt(adaptiveGradient, sequentialChanged);
+  adaptStats.innerHTML = `
+    <div>Same ${adaptiveChanged.length.toLocaleString()}-bit payload, different placement:</div>
+    <div>Mean texture at embedding sites — adaptive <strong>${adaptTexture.toFixed(1)}</strong> vs sequential <strong>${seqTexture.toFixed(1)}</strong> (higher = busier, harder to model).</div>
+    <div>Bits landing in smooth regions — adaptive <strong>${(adaptSmooth * 100).toFixed(1)}%</strong> vs sequential <strong>${(seqSmooth * 100).toFixed(1)}%</strong> (lower is stealthier).</div>
+    <div>Whole-image chi-square sees neither at this payload (P(embedding): sequential ${(seq.pEmbed * 100).toFixed(2)}%, adaptive ${(adaptive.pEmbed * 100).toFixed(2)}%) — the crude global test is blind here. Adaptive's advantage shows up against richer-model / ML detectors, by keeping bits out of smooth regions where any detector looks first.</div>
+  `;
 });
-
-function escapeHtml(input: string): string {
-  return input
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
 
 installThemeToggle();

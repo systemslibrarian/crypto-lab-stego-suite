@@ -125,6 +125,108 @@ h1 {
   background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
+.source-bar {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+.source-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.source-name {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.file-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.file-btn:focus-within {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.control-file {
+  justify-content: center;
+  width: 100%;
+}
+
+button.ghost,
+.ghost {
+  background: transparent;
+}
+
+.capacity {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.capacity-track {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.capacity-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  transition: width 0.25s ease;
+}
+
+.capacity-fill.over {
+  background: var(--danger);
+}
+
+.copy-btn {
+  width: auto;
+  padding: 0.1rem 0.5rem;
+  margin-left: 0.3rem;
+  font-size: 0.78rem;
+  border-radius: 999px;
+}
+
+button[data-busy="true"] {
+  position: relative;
+  opacity: 0.85;
+}
+
+button,
+.file-btn,
+.links a,
+.capacity-fill {
+  transition: border-color 0.18s ease, background 0.18s ease, width 0.25s ease;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -335,7 +437,19 @@ small {
     padding: 0.9rem;
   }
 
-  button {
+  button,
+  .file-btn {
     min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
