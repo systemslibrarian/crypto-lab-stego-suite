@@ -453,3 +453,11 @@ small {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* ═══ Accessibility: WCAG AA contrast overrides (auto-added) ═══ */
+[data-theme="light"] .skip-link { background-color: #b95600; } /* was #ef6f00 on #f8fbff = 2.91:1 → 4.60:1 */
+
+
+/* ═══ Accessibility: faint-text contrast overrides (auto-added) ═══ */
+[data-theme="light"] .status-ok { color: #0c7c72; } /* was #0f9b8e, now ≥4.6:1 on theme surfaces */
