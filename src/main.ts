@@ -49,24 +49,32 @@ if (!app) {
 
 app.innerHTML = `
   <main class="shell" id="main-content">
-    <header class="hero" role="banner">
+    <header class="cl-hero">
       <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode"><span aria-hidden="true">🌙</span></button>
-      <h1>Stego Suite</h1>
-      <p class="subtitle">
-        The definitive browser-based educational steganography demo: LSB substitution, F5-inspired DCT embedding,
-        WOW-inspired adaptive embedding, and real chi-squared steganalysis.
-      </p>
-      <small>Encryption hides content; steganography hides existence. Strongest model: encrypt first, then hide.</small>
-      <div class="source-bar" role="group" aria-label="Cover image source">
-        <span class="source-label">Cover image (feeds every exhibit):</span>
-        <label class="file-btn">
-          <span>Upload your own…</span>
-          <input id="cover-upload" type="file" accept="image/*" hidden />
-        </label>
-        <button id="cover-sample" type="button" class="ghost">Use sample landscape</button>
-        <span id="cover-source-name" class="source-name" aria-live="polite">Sample landscape · 256×256</span>
+      <div class="cl-hero-main">
+        <h1 class="cl-hero-title">Stego Suite</h1>
+        <p class="cl-hero-sub">LSB · DCT · Adaptive embedding · Chi-squared steganalysis</p>
+        <p class="cl-hero-desc">
+          Embed secret messages in an image with LSB, F5-inspired DCT, and WOW-inspired adaptive methods, then run real chi-squared steganalysis to see which ones a detector catches.
+        </p>
       </div>
+      <aside class="cl-hero-why" aria-label="Why it matters">
+        <span class="cl-hero-why-label">WHY IT MATTERS</span>
+        <p class="cl-hero-why-text">
+          Cryptography hides a message's meaning; steganography hides its very existence — decisive where being seen to communicate is itself the risk. But hidden bits leave statistical traces, so every scheme races an evolving steganalyzer.
+        </p>
+      </aside>
     </header>
+
+    <div class="source-bar" role="group" aria-label="Cover image source">
+      <span class="source-label">Cover image (feeds every exhibit):</span>
+      <label class="file-btn">
+        <span>Upload your own…</span>
+        <input id="cover-upload" type="file" accept="image/*" hidden />
+      </label>
+      <button id="cover-sample" type="button" class="ghost">Use sample landscape</button>
+      <span id="cover-source-name" class="source-name" aria-live="polite">Sample landscape · 256×256</span>
+    </div>
 
     <section class="exhibit" id="exhibit-1" aria-labelledby="exhibit-1-heading">
       <h2 id="exhibit-1-heading">Exhibit 1 — Steganography vs Cryptography: Two Different Goals</h2>
