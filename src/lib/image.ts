@@ -25,14 +25,22 @@ export function createSampleImageData(width: number, height: number, seed: numbe
       const noise = pseudoNoise(x, y, seed);
       const hills = Math.sin(nx * Math.PI * 6) * 0.5 + 0.5;
       const skyMix = 0.58 - t;
-      let r = clampByte(40 + 95 * hills + 30 * noise + 70 * Math.max(0, skyMix));
-      let g = clampByte(65 + 110 * hills + 70 * t + 25 * noise);
-      const b = clampByte(90 + 80 * t + 20 * noise + 80 * Math.max(0, skyMix));
+      // Fade high-frequency per-pixel noise out of the sky and up in the ground, so the
+      // upper region is a genuinely smooth field (the exhibits' "smooth sky") while the
+      // lower region is busy texture. This makes the noise-residual contrast honest: a ±1
+      // change on the smooth sky stands out, one buried in ground texture blends in.
+      const groundFade = Math.min(1, Math.max(0, (t - 0.4) / 0.25));
+      let r = clampByte(40 + 95 * hills + 30 * noise * groundFade + 70 * Math.max(0, skyMix));
+      let g = clampByte(65 + 110 * hills + 70 * t + 25 * noise * groundFade);
+      let b = clampByte(90 + 80 * t + 20 * noise * groundFade + 80 * Math.max(0, skyMix));
 
       if (y > height * 0.58) {
         const texture = pseudoNoise(x * 2, y * 2, seed + 9) * 60;
         g = clampByte(g + texture);
         r = clampByte(r + texture * 0.3);
+        // Blue is the channel the adaptive/sequential exhibit embeds into; give the ground
+        // real blue-channel texture so adaptive changes there have somewhere to hide.
+        b = clampByte(b + (pseudoNoise(x * 2 + 1, y * 2 + 1, seed + 21) - 0.5) * 44);
       }
 
       data[i] = r;

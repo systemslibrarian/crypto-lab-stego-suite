@@ -20,7 +20,15 @@ Stego Suite demonstrates three steganographic techniques — LSB (Least Signific
 
 **[systemslibrarian.github.io/crypto-lab-stego-suite](https://systemslibrarian.github.io/crypto-lab-stego-suite/)**
 
-Six exhibits cover steganography-vs-cryptography orientation, LSB substitution with pixel-level visualization and optional AES encryption, a real chi-squared steganalysis test detecting LSB embedding, F5-inspired DCT-domain embedding with 8×8 block transform visualization, WOW-inspired adaptive embedding using texture cost maps, and real-world cases from printer tracking dots to malware C2 channels. **Bring your own image:** upload any photo as the cover, embed a message, download the exact stego PNG, then re-upload to extract — a full round-trip on real imagery, with PSNR/fidelity metrics, a peak per-channel change readout, and a live capacity meter.
+Six exhibits cover steganography-vs-cryptography orientation, LSB substitution with pixel-level visualization and optional AES encryption, a real chi-squared steganalysis test detecting LSB embedding, F5-inspired DCT-domain embedding with 8×8 block transform visualization, WOW-inspired adaptive embedding using texture cost maps, and real-world cases from printer tracking dots to malware C2 channels. The exhibits are numbered as a suggested path, and dependent controls show inline hints when a prerequisite step is still pending. **Bring your own image:** upload any photo as the cover, embed a message, download the exact stego PNG, then re-upload to extract — a full round-trip on real imagery, with PSNR/fidelity metrics, a peak per-channel change readout, and a live capacity meter.
+
+Interactive teaching aids build the intuition before the machinery:
+
+1. **Steganography vs cryptography** — a one-line plain-language contrast, a five-term vocabulary table, and an expandable "History / going deeper" panel holding the Westfeld–Pfitzmann / Fridrich / SRNet arms-race citations.
+2. **LSB substitution** — a step-forward/step-back walkthrough that hides the *first payload bits one at a time*, showing the target channel's byte in binary and animating its least-significant bit flip to match each message bit, before the bulk embed.
+3. **Chi-squared steganalysis** — a manipulable 8-pair toy histogram whose paired bars equalize toward their shared mean as you drag a "fraction embedded" slider (with a live residual χ²), grounding the pair-equalization insight before the real 127-degrees-of-freedom test on the image.
+4. **DCT-domain embedding** — a primer defining a DCT coefficient as "how much of a given wave pattern this 8×8 block contains," plus a live basis-pattern thumbnail that previews the wave a coefficient controls when you hover a heatmap cell.
+5. **Adaptive embedding** — a side-by-side **noise-residual view** (what a modern high-pass detector sees) contrasting sequential vs adaptive, so adaptive's changes visibly hide in texture while sequential's stand out on the smooth sky; the texture cost-map legend states the takeaway directly (green = textured = cheap to hide in; red = smooth = risky) and rings where adaptive placed its first bits.
 
 ## What Can Go Wrong
 

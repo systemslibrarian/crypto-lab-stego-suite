@@ -41,6 +41,9 @@ type LsbPacket = {
 
 const CANVAS_SIZE = 256;
 const SAMPLE_SEED = 37;
+// Residual amplification: ±1 blue-LSB edits are tiny, so amplify the high-pass residual
+// enough that isolated changes on smooth regions are visible without saturating texture.
+const RESIDUAL_GAIN = 24;
 
 const app = document.getElementById("app");
 if (!app) {
@@ -77,46 +80,47 @@ app.innerHTML = `
     </div>
 
     <section class="exhibit" id="exhibit-1" aria-labelledby="exhibit-1-heading">
-      <h2 id="exhibit-1-heading">Exhibit 1 — Steganography vs Cryptography: Two Different Goals</h2>
-      <p>
-        <strong>Cryptography</strong> transforms content into unreadable ciphertext: existence is visible, meaning is hidden.
-        <strong>Steganography</strong> hides a payload inside a normal-looking medium: existence is hidden, not just content.
+      <h2 id="exhibit-1-heading"><span class="exhibit-step" aria-hidden="true">1</span>Exhibit 1 — Steganography vs Cryptography: Two Different Goals</h2>
+      <p class="lead-sentence">
+        <strong>Encryption scrambles a message so you can't read it; steganography hides a message so you don't even know it's there.</strong>
       </p>
-      <div class="row">
-        <div>
-          <h3>Why both are needed</h3>
-          <p>Encryption without steganography can still trigger suspicion. Steganography without encryption exposes plaintext if detected.</p>
-          <p>Combined workflow: encrypt first, then embed.</p>
-        </div>
-        <div>
-          <h3>Arms race</h3>
-          <p>LSB substitution ↔ chi-squared steganalysis (Westfeld &amp; Pfitzmann 1999).</p>
-          <p>F5 JPEG steganography ↔ calibration-family attacks (Fridrich et al.).</p>
-          <p>Adaptive embedding ↔ ML steganalyzers (for example SRNet-class systems).</p>
-        </div>
-      </div>
-      <div class="callout">
-        <strong>Why this matters:</strong> steganography appears in digital watermarking, covert channels, printer tracking dots,
-        and activist/journalist communications where message existence is itself sensitive.
-      </div>
+      <p>
+        Both protect a message, but against different threats. <strong>Cryptography</strong> turns content into unreadable
+        ciphertext — anyone can see that <em>something</em> secret was sent, they just can't read it. <strong>Steganography</strong>
+        tucks the payload inside a normal-looking image, so the very <em>existence</em> of a message is hidden. They combine
+        naturally: <strong>encrypt first, then embed</strong> — if the hidden payload is ever found, it's still just ciphertext.
+      </p>
+      <p>Five terms you'll meet in every exhibit below:</p>
       <div class="table-wrap">
       <table>
         <thead>
           <tr><th scope="col">Vocabulary</th><th scope="col">Meaning</th></tr>
         </thead>
         <tbody>
-          <tr><td>Cover medium</td><td>Original image/audio/video before embedding.</td></tr>
-          <tr><td>Stego medium</td><td>Output medium after embedding payload.</td></tr>
-          <tr><td>Payload</td><td>Secret bits hidden in the cover.</td></tr>
-          <tr><td>Embedding rate</td><td>Payload bits per pixel or coefficient.</td></tr>
-          <tr><td>Detectability</td><td>How likely steganalysis identifies stego content.</td></tr>
+          <tr><td>Cover medium</td><td>The original image/audio/video, before anything is hidden in it.</td></tr>
+          <tr><td>Stego medium</td><td>The output after a payload has been embedded — should look identical to the cover.</td></tr>
+          <tr><td>Payload</td><td>The secret bits you hide inside the cover.</td></tr>
+          <tr><td>Embedding rate</td><td>How many payload bits you pack per pixel or coefficient — more is riskier.</td></tr>
+          <tr><td>Detectability</td><td>How likely a steganalysis test is to notice the medium carries hidden data.</td></tr>
         </tbody>
       </table>
       </div>
+      <div class="callout">
+        <strong>Why this matters:</strong> steganography appears in digital watermarking, covert channels, printer tracking dots,
+        and activist/journalist communications where message existence is itself sensitive.
+      </div>
+      <details class="deep-dive">
+        <summary>History / going deeper: the steganography–steganalysis arms race</summary>
+        <p>Every hiding scheme provokes a detector, which provokes a stealthier scheme. The exhibits below trace three rounds of that race:</p>
+        <p><strong>LSB substitution</strong> (Exhibit 2) ↔ <strong>chi-squared steganalysis</strong> (Exhibit 3) — Westfeld &amp; Pfitzmann, Information Hiding 1999.</p>
+        <p><strong>F5 JPEG steganography</strong> (Exhibit 4, inspired) ↔ <strong>calibration-family attacks</strong> — Fridrich et al.</p>
+        <p><strong>Adaptive embedding</strong> (Exhibit 5, WOW-inspired) ↔ <strong>machine-learning steganalyzers</strong> — e.g. SRNet-class deep networks.</p>
+        <p>You don't need any of these names to work through the demo; they're here so you can look up the real research once the intuition clicks.</p>
+      </details>
     </section>
 
     <section class="exhibit" id="exhibit-2" aria-labelledby="exhibit-2-heading">
-      <h2 id="exhibit-2-heading">Exhibit 2 — LSB Substitution: The Simplest Technique</h2>
+      <h2 id="exhibit-2-heading"><span class="exhibit-step" aria-hidden="true">2</span>Exhibit 2 — LSB Substitution: The Simplest Technique</h2>
       <p>
         RGB channels are 8-bit values. Flipping the least-significant bit (LSB) changes a channel by at most 1,
         usually visually imperceptible. This demo embeds 1 bit per channel (3 bits per pixel).
@@ -136,6 +140,32 @@ app.innerHTML = `
         <div class="capacity-track"><div id="lsb-capacity-fill" class="capacity-fill"></div></div>
         <small id="lsb-capacity-text">Capacity usage updates as you type.</small>
       </div>
+
+      <div class="walkthrough" id="lsb-walk" aria-labelledby="lsb-walk-heading">
+        <h3 id="lsb-walk-heading">Watch one bit hide at a time</h3>
+        <p class="walk-intro">
+          Before the bulk embed, step through the <em>first payload bits</em> one at a time. Each bit is written into
+          the least-significant bit (LSB) of one color channel — the bit worth just 1 out of 0–255, so the channel
+          changes by at most 1 and stays visually identical. The other 7 bits never move.
+        </p>
+        <div class="walk-stage">
+          <div class="walk-pixel">
+            <span class="walk-pixel-label">Target channel</span>
+            <div class="walk-byte" id="lsb-walk-byte" aria-live="polite" role="status"></div>
+            <div class="walk-legend" aria-hidden="true">
+              <span>bit value:</span>
+              <span>128</span><span>64</span><span>32</span><span>16</span><span>8</span><span>4</span><span>2</span><span class="walk-legend-lsb">1 ← LSB</span>
+            </div>
+          </div>
+          <p class="walk-caption" id="lsb-walk-caption" aria-live="polite"></p>
+        </div>
+        <div class="controls walk-controls" role="toolbar" aria-label="LSB bit-by-bit walkthrough controls">
+          <button id="lsb-walk-prev" type="button" class="ghost">◀ Previous bit</button>
+          <button id="lsb-walk-next" type="button">Next bit ▶</button>
+          <button id="lsb-walk-reset" type="button" class="ghost">Restart walkthrough</button>
+        </div>
+      </div>
+
       <div class="controls" role="toolbar" aria-label="LSB embedding controls">
         <button id="lsb-embed" type="button">Embed message</button>
         <button id="lsb-extract" type="button">Extract message</button>
@@ -162,17 +192,39 @@ app.innerHTML = `
     </section>
 
     <section class="exhibit" id="exhibit-3" aria-labelledby="exhibit-3-heading">
-      <h2 id="exhibit-3-heading">Exhibit 3 — Chi-Squared Steganalysis: Detecting LSB</h2>
+      <h2 id="exhibit-3-heading"><span class="exhibit-step" aria-hidden="true">3</span>Exhibit 3 — Chi-Squared Steganalysis: Detecting LSB</h2>
       <p>
         Westfeld &amp; Pfitzmann (IH 1999) pair-value test over (0,1), (2,3), ..., (254,255). LSB embedding tends to equalize each pair.
         This implementation computes a real chi-squared statistic over 127 degrees of freedom and reports the
         <strong>probability of embedding</strong> = <em>Q</em>(dof/2, χ²/2). Near 1 ⇒ the carrier looks LSB-embedded; near 0 ⇒ it looks like a natural cover.
       </p>
+      <div class="toy" id="chi-toy" aria-labelledby="chi-toy-heading">
+        <h3 id="chi-toy-heading">First, the whole idea in one picture</h3>
+        <p class="toy-intro">
+          Group pixel values into pairs: (0,1), (2,3), (4,5)… In a natural image the two columns of a pair are usually
+          <em>unequal</em> — some values are just more common than their neighbour. But flipping the LSB only ever swaps a
+          value with its pair-partner, so as more bits are embedded, LSB randomization <strong>shuffles counts within each
+          pair toward their shared average</strong>, flattening every pair to equal height. Drag the slider and watch the
+          paired bars level off — that equalization is exactly what the chi-squared test measures.
+        </p>
+        <div class="toy-slider-row">
+          <label for="chi-toy-slider">Fraction embedded</label>
+          <input id="chi-toy-slider" type="range" min="0" max="100" value="0" step="1" aria-describedby="chi-toy-caption" />
+          <span class="toy-readout" id="chi-toy-readout">0%</span>
+        </div>
+        <div class="figure"><h4>8 value-pairs, LSB randomization equalizing each pair</h4><canvas id="chi-toy-canvas" width="480" height="180" role="img" aria-label="Toy histogram of eight value pairs whose paired bars equalize toward their shared mean as the embedded fraction rises"></canvas></div>
+        <p class="toy-caption" id="chi-toy-caption">
+          At 0% the pairs are lopsided (natural cover). Slide toward 100% and each (even, odd) pair converges to one flat
+          level — the fingerprint the real test below detects across all 128 pairs of an 8-bit channel (127 degrees of freedom).
+        </p>
+      </div>
+
       <div class="controls" role="toolbar" aria-label="Chi-squared test controls">
         <button id="chi-test-cover" type="button">Test cover image</button>
         <button id="chi-test-stego" type="button">Test stego image</button>
         <button id="chi-run-curve" type="button">Run payload detectability curve</button>
       </div>
+      <small class="dep-hint" id="chi-dep-hint" aria-live="polite">Tip: do Exhibit 2 first — “Test stego image” needs a message embedded before it has anything to detect.</small>
       <div class="stats" id="chi-results" aria-live="polite" role="status"></div>
       <div class="figure"><h4>Chi-squared distribution (dof = 127)</h4><canvas id="chi-plot" width="640" height="220" role="img" aria-label="Chi-squared probability distribution with test statistic marker"></canvas></div>
       <div id="chi-curve" aria-live="polite"></div>
@@ -185,11 +237,22 @@ app.innerHTML = `
     </section>
 
     <section class="exhibit" id="exhibit-4" aria-labelledby="exhibit-4-heading">
-      <h2 id="exhibit-4-heading">Exhibit 4 — DCT-Domain Steganography (F5-inspired)</h2>
+      <h2 id="exhibit-4-heading"><span class="exhibit-step" aria-hidden="true">4</span>Exhibit 4 — DCT-Domain Steganography (F5-inspired)</h2>
       <p>
         JPEG steganography works in frequency coefficients. This browser demo performs an educational 8×8 DCT workflow on raw image data.
         <strong>Label:</strong> F5-inspired DCT embedding — not full F5 JPEG re-encoding.
       </p>
+      <p class="dct-primer">
+        <strong>What is a DCT coefficient?</strong> The DCT rewrites each 8×8 block of pixels as a sum of 64 fixed
+        wave patterns (from flat, to slow ripples, to fine checkerboards). A coefficient is simply <em>how much of one
+        wave pattern this block contains</em>. The top-left coefficient (DC) is the block's average brightness; the rest
+        (AC) carry its texture. We hide a bit by nudging one AC coefficient's parity (even/odd) by ±1 — a change JPEG
+        keeps, unlike a raw pixel LSB. <span class="dct-primer-hint">Hover any cell in the heatmap to see the wave pattern it controls.</span>
+      </p>
+      <div class="dct-basis" id="dct-basis" role="group" aria-label="DCT basis pattern preview">
+        <canvas id="dct-basis-canvas" width="64" height="64" role="img" aria-label="Wave pattern for the hovered DCT coefficient"></canvas>
+        <span class="dct-basis-text" id="dct-basis-text">Hover a heatmap cell to preview its 8×8 wave pattern (its DCT basis function).</span>
+      </div>
       <div class="row">
         <div>
           <label for="dct-message">Secret message for DCT embedding</label>
@@ -221,7 +284,7 @@ app.innerHTML = `
     </section>
 
     <section class="exhibit" id="exhibit-5" aria-labelledby="exhibit-5-heading">
-      <h2 id="exhibit-5-heading">Exhibit 5 — Adaptive Steganography (WOW-inspired)</h2>
+      <h2 id="exhibit-5-heading"><span class="exhibit-step" aria-hidden="true">5</span>Exhibit 5 — Adaptive Steganography (WOW-inspired)</h2>
       <p>
         Educational simplification inspired by WOW (Holub &amp; Fridrich, WIFS 2012): compute a texture map using Sobel gradients,
         then embed first in low-cost (high-texture) locations and avoid smooth regions.
@@ -243,11 +306,28 @@ app.innerHTML = `
         <button id="adapt-seq" type="button">Sequential LSB embed</button>
         <button id="adapt-compare" type="button">Compare chi-squared detectability</button>
       </div>
+      <small class="dep-hint" id="adapt-dep-hint" aria-live="polite">Tip: run both “Adaptive embed” and “Sequential LSB embed” before “Compare” — the comparison needs both placements to contrast them.</small>
       <div class="stats" id="adapt-stats" aria-live="polite" role="status"></div>
       <div class="canvas-grid">
-        <div class="figure"><h4>Texture cost map (green low cost, red high cost)</h4><canvas id="adapt-map-canvas" width="256" height="256" role="img" aria-label="Texture cost map showing low-cost areas in green and high-cost in red"></canvas></div>
+        <div class="figure"><h4>Texture cost map — green = textured/busy = cheap to hide in; red = smooth = risky</h4><canvas id="adapt-map-canvas" width="256" height="256" role="img" aria-label="Texture cost map: green marks textured busy regions that are cheap and safe to hide in, red marks smooth regions that are risky; small markers show where adaptive embedding placed its first bits"></canvas><small class="residual-note">Adaptive embeds where the image is busy (green), because a change buried in texture is hard to spot. After you run “Adaptive embed”, the small markers show where its first bits landed — all in the green, textured zones, never the red sky.</small></div>
         <div class="figure"><h4>Adaptive embedding locations</h4><canvas id="adapt-locations" width="256" height="256" role="img" aria-label="Image showing where adaptive embedding placed payload bits"></canvas></div>
         <div class="figure"><h4>Sequential embedding locations</h4><canvas id="seq-locations" width="256" height="256" role="img" aria-label="Image showing where sequential embedding placed payload bits"></canvas></div>
+      </div>
+      <h3>What a modern detector sees: the noise residual</h3>
+      <p class="residual-note">
+        Chi-squared reads a whole-image histogram and, at this payload, is blind to <em>where</em> bits landed — so it
+        cannot tell these two apart. Modern detectors instead look at the <strong>noise residual</strong>: they high-pass
+        filter the image to strip away smooth content and keep only pixel-to-pixel fluctuation, then hunt for embedding
+        traces there. On that residual the difference is visual: sequential embedding drops isolated ±1 changes onto the
+        smooth sky, where they stand out as bright specks against a flat field; adaptive embedding hides its changes in
+        already-noisy texture, where they blend in. This is the intuition behind WOW/S-UNIWARD — no ML model required to
+        see it. The grayscale backdrop is the real residual a detector works in; the <strong>amber rings mark the true
+        embedding sites</strong>, so you can see sequential's fall on the flat sky (conspicuous) while adaptive's fall in
+        the busy ground (camouflaged).
+      </p>
+      <div class="canvas-grid">
+        <div class="figure"><h4>Residual — sequential (specks on smooth sky)</h4><canvas id="residual-seq" width="256" height="256" role="img" aria-label="High-pass noise residual of the sequential stego image, showing isolated embedding changes standing out against smooth regions"></canvas></div>
+        <div class="figure"><h4>Residual — adaptive (buried in texture)</h4><canvas id="residual-adapt" width="256" height="256" role="img" aria-label="High-pass noise residual of the adaptive stego image, showing embedding changes blended into textured regions"></canvas></div>
       </div>
       <div class="callout">
         <strong>Why this matters:</strong> adaptive methods reduce detectability compared to naive sequential LSB,
@@ -256,7 +336,7 @@ app.innerHTML = `
     </section>
 
     <section class="exhibit" id="exhibit-6" aria-labelledby="exhibit-6-heading">
-      <h2 id="exhibit-6-heading">Exhibit 6 — Steganography in the Real World</h2>
+      <h2 id="exhibit-6-heading"><span class="exhibit-step" aria-hidden="true">6</span>Exhibit 6 — Steganography in the Real World</h2>
       <div class="row">
         <div>
           <h3>Case A — Printer Tracking Dots</h3>
@@ -494,6 +574,23 @@ function drawCostMap(gradient: Float64Array, image: ImageData, canvasId: string)
   ctx.putImageData(out, 0, 0);
 }
 
+/** Redraw the cost map and ring the first embedded bits so the learner sees they land in green. */
+function markFirstBitsOnCostMap(changed: Uint32Array): void {
+  drawCostMap(adaptiveGradient, coverImage, "adapt-map-canvas");
+  const ctx = getCtx("adapt-map-canvas");
+  const count = Math.min(24, changed.length);
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "#ffffff";
+  for (let i = 0; i < count; i += 1) {
+    const p = changed[i];
+    const x = p % coverImage.width;
+    const y = Math.floor(p / coverImage.width);
+    ctx.beginPath();
+    ctx.arc(x + 0.5, y + 0.5, 3, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
 function drawLocations(base: ImageData, changed: Uint32Array, canvasId: string): void {
   const ctx = getCtx(canvasId);
   ctx.putImageData(base, 0, 0);
@@ -508,6 +605,74 @@ function drawLocations(base: ImageData, changed: Uint32Array, canvasId: string):
 
 function clamp255(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
+}
+
+/**
+ * High-pass noise residual: luma minus a 3×3 box-blur, amplified and shown as a
+ * grayscale map (mid-gray = zero residual). This is the honest first move of a modern
+ * steganalyzer — strip smooth content, keep fluctuation. On the residual, smooth regions
+ * are flat (mid-gray) so isolated ±1 embedding changes there pop out; textured regions are
+ * already busy so changes there blend in. Computed from the real stego pixels, not faked.
+ *
+ * We take the residual of the BLUE channel — the channel this exhibit actually embeds into
+ * (see embedByOrder) — so the ±1 LSB edits are the signal, not washed out by luma weighting.
+ *
+ * `changed` (optional) are the true embedding sites; we ring them on the residual backdrop so
+ * the learner sees WHERE the changes fell: on the flat sky (conspicuous) vs the busy ground
+ * (camouflaged). The backdrop is the real detector view; the rings are the real change sites —
+ * nothing is faked, we just make the honest contrast legible at a payload this small.
+ */
+function drawResidual(image: ImageData, canvasId: string, gain: number, changed?: Uint32Array): void {
+  const ctx = getCtx(canvasId);
+  const w = image.width;
+  const h = image.height;
+  const luma = new Float64Array(w * h);
+  const d = image.data;
+  for (let i = 0, p = 0; i < d.length; i += 4, p += 1) {
+    luma[p] = d[i + 2]; // blue channel — where this exhibit embeds
+  }
+  const out = new ImageData(w, h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      let sum = 0;
+      let n = 0;
+      for (let j = -1; j <= 1; j += 1) {
+        for (let i = -1; i <= 1; i += 1) {
+          const yy = y + j;
+          const xx = x + i;
+          if (yy < 0 || yy >= h || xx < 0 || xx >= w) {
+            continue;
+          }
+          sum += luma[yy * w + xx];
+          n += 1;
+        }
+      }
+      const blur = sum / n;
+      const residual = (luma[y * w + x] - blur) * gain;
+      const v = clamp255(128 + residual);
+      const idx = (y * w + x) * 4;
+      out.data[idx] = v;
+      out.data[idx + 1] = v;
+      out.data[idx + 2] = v;
+      out.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+
+  if (changed && changed.length > 0) {
+    // Ring the true change sites. Amber reads on both flat-gray and busy backdrops.
+    ctx.strokeStyle = cssVar("--accent");
+    ctx.lineWidth = 1;
+    const count = Math.min(changed.length, 4000);
+    for (let i = 0; i < count; i += 1) {
+      const p = changed[i];
+      const x = p % w;
+      const y = Math.floor(p / w);
+      ctx.beginPath();
+      ctx.arc(x + 0.5, y + 0.5, 2.2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
 }
 
 // --- Cover image state, shared by every exhibit ---
@@ -544,6 +709,15 @@ const lsbMessageEl = document.getElementById("lsb-message") as HTMLTextAreaEleme
 const lsbEncryptEl = document.getElementById("lsb-encrypt") as HTMLInputElement;
 const lsbPassphraseEl = document.getElementById("lsb-passphrase") as HTMLInputElement;
 
+const chiDepHint = document.getElementById("chi-dep-hint") as HTMLElement;
+const adaptDepHint = document.getElementById("adapt-dep-hint") as HTMLElement;
+
+/** Update the inline sequencing hints as data dependencies are satisfied. */
+function refreshDepHints(): void {
+  chiDepHint.hidden = lsbHasEmbedded;
+  adaptDepHint.hidden = adaptHasEmbedded && seqHasEmbedded;
+}
+
 function redrawAll(): void {
   drawImageData(lsbCoverCtx, coverImage);
   drawImageData(lsbStegoCtx, lsbStegoImage);
@@ -555,6 +729,8 @@ function redrawAll(): void {
   drawCostMap(adaptiveGradient, coverImage, "adapt-map-canvas");
   drawLocations(coverImage, new Uint32Array(0), "adapt-locations");
   drawLocations(coverImage, new Uint32Array(0), "seq-locations");
+  drawResidual(coverImage, "residual-seq", RESIDUAL_GAIN);
+  drawResidual(coverImage, "residual-adapt", RESIDUAL_GAIN);
   drawChiPlot("chi-plot", 127, 127);
 }
 
@@ -582,6 +758,8 @@ function setCoverImage(image: ImageData, sourceLabel: string): void {
   dctStats.textContent = "";
   adaptStats.textContent = "";
   updateCapacityMeter();
+  resetWalk();
+  refreshDepHints();
 }
 
 /** Scale + center-crop an arbitrary image to a square cover of the given size. */
@@ -789,6 +967,7 @@ lsbEmbedBtn.addEventListener("click", async () => {
     const result = embedBitsSpatial(coverImage, bits);
     lsbStegoImage = result.stego;
     lsbHasEmbedded = true;
+    refreshDepHints();
     drawImageData(lsbStegoCtx, lsbStegoImage);
     drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);
     drawHistogram(computeHistogram(lsbStegoImage), "lsb-hist-stego");
@@ -879,11 +1058,200 @@ lsbExtractFileEl.addEventListener("change", async (event) => {
 (document.getElementById("lsb-reset") as HTMLButtonElement).addEventListener("click", () => {
   lsbStegoImage = cloneImageData(coverImage);
   lsbHasEmbedded = false;
+  refreshDepHints();
   drawImageData(lsbStegoCtx, lsbStegoImage);
   drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);
   drawHistogram(computeHistogram(lsbStegoImage), "lsb-hist-stego");
   lsbStats.innerHTML = "Stego image reset to the current cover.";
 });
+
+// --- LSB bit-by-bit walkthrough ---
+//
+// Shows how the FIRST few payload bits are hidden, one at a time, using the exact
+// same spatial LSB rule the bulk embed uses: bit k is written to the LSB of channel
+// k, walking R,G,B across pixels (alpha skipped). We derive the real packet bits from
+// the current message so the walkthrough is honest, not scripted output. Encryption
+// changes only WHICH bytes get hidden, never how each bit hides, so the walkthrough
+// always visualizes the plaintext packet and says so.
+
+const WALK_STEPS = 10; // first 10 payload bits — enough to cross from R into G/B channels
+const CHANNEL_NAMES = ["red", "green", "blue"] as const;
+const walkByteEl = document.getElementById("lsb-walk-byte") as HTMLDivElement;
+const walkCaptionEl = document.getElementById("lsb-walk-caption") as HTMLElement;
+let walkStep = 0;
+
+/** Real packet bits for the current message (plaintext packet — the mechanism is byte-agnostic). */
+function walkBits(): number[] {
+  const message = lsbMessageEl.value || " ";
+  const body = makeLsbBody(0, new TextEncoder().encode(message));
+  const packet = buildPacketBytes(body);
+  return bytesToBits(packet);
+}
+
+/** Map linear bit index -> {pixel, channel} under the R,G,B (alpha-skipped) embed order. */
+function bitSite(bitIndex: number): { pixel: number; channel: number } {
+  return { pixel: Math.floor(bitIndex / 3), channel: bitIndex % 3 };
+}
+
+function channelValueAt(image: ImageData, pixel: number, channel: number): number {
+  return image.data[pixel * 4 + channel];
+}
+
+function toBinary8(v: number): number[] {
+  const out: number[] = [];
+  for (let b = 7; b >= 0; b -= 1) {
+    out.push((v >> b) & 1);
+  }
+  return out;
+}
+
+function renderWalk(): void {
+  const bits = walkBits();
+  const clampedStep = Math.min(walkStep, bits.length - 1);
+  const site = bitSite(clampedStep);
+  const before = channelValueAt(coverImage, site.pixel, site.channel);
+  const msgBit = bits[clampedStep];
+  const after = (before & 0xfe) | msgBit;
+  const changed = before !== after;
+  const beforeBinary = toBinary8(before);
+  const afterBinary = toBinary8(after);
+  const x = site.pixel % coverImage.width;
+  const y = Math.floor(site.pixel / coverImage.width);
+
+  // Render the 8 bit-cells; the LSB (index 7) is highlighted and flips to the message bit.
+  const cells = beforeBinary
+    .map((b, i) => {
+      const isLsb = i === 7;
+      const shownBit = isLsb ? afterBinary[7] : b;
+      const flipped = isLsb && changed;
+      const cls = ["walk-bit", isLsb ? "walk-bit-lsb" : "", flipped ? "walk-bit-flip" : ""].filter(Boolean).join(" ");
+      return `<span class="${cls}" aria-hidden="true">${shownBit}</span>`;
+    })
+    .join("");
+
+  walkByteEl.innerHTML =
+    `<span class="walk-channel walk-channel-${site.channel}">${CHANNEL_NAMES[site.channel].toUpperCase()}</span>` +
+    `<span class="walk-cells">${cells}</span>` +
+    `<span class="walk-value">= ${after}</span>`;
+
+  const changeText = changed
+    ? `its LSB flips <strong>${beforeBinary[7]} → ${afterBinary[7]}</strong>, so the value goes <strong>${before} → ${after}</strong> (a change of 1).`
+    : `its LSB is already <strong>${msgBit}</strong>, so the value stays <strong>${before}</strong> — no change needed.`;
+
+  walkCaptionEl.innerHTML =
+    `<strong>Bit ${clampedStep + 1} of ${bits.length}</strong> — message bit <strong>${msgBit}</strong> → ` +
+    `${CHANNEL_NAMES[site.channel]} channel of pixel (${x}, ${y}). ` +
+    `Reading the byte in binary, ${changeText} ` +
+    `<span class="walk-note">Byte position ${clampedStep + 1} is part of the 4-byte length header the demo writes before your text.</span>`;
+
+  (document.getElementById("lsb-walk-prev") as HTMLButtonElement).disabled = clampedStep <= 0;
+  (document.getElementById("lsb-walk-next") as HTMLButtonElement).disabled = clampedStep >= Math.min(WALK_STEPS, bits.length) - 1;
+}
+
+(document.getElementById("lsb-walk-next") as HTMLButtonElement).addEventListener("click", () => {
+  walkStep = Math.min(walkStep + 1, WALK_STEPS - 1);
+  renderWalk();
+});
+(document.getElementById("lsb-walk-prev") as HTMLButtonElement).addEventListener("click", () => {
+  walkStep = Math.max(walkStep - 1, 0);
+  renderWalk();
+});
+function resetWalk(): void {
+  walkStep = 0;
+  renderWalk();
+}
+(document.getElementById("lsb-walk-reset") as HTMLButtonElement).addEventListener("click", resetWalk);
+lsbMessageEl.addEventListener("input", resetWalk);
+renderWalk();
+
+// --- Chi-squared toy histogram ---
+//
+// A hand-built 8-pair histogram that models the SAME statistic the real test uses.
+// LSB embedding randomizes the least-significant bit of a fraction f of samples;
+// randomizing swaps a value only with its pair-partner, so each pair (a,b) relaxes
+// toward its mean: a' = a(1 - f/2) + b(f/2). At f=1 both columns equal (a+b)/2.
+// We also show the resulting chi-squared over these 8 pairs so the toy connects
+// numerically to the 127-dof statistic on the real image.
+
+const TOY_PAIRS: Array<[number, number]> = [
+  [82, 30],
+  [64, 20],
+  [70, 44],
+  [38, 12],
+  [90, 55],
+  [26, 8],
+  [58, 34],
+  [46, 18]
+];
+const toyCanvasEl = document.getElementById("chi-toy-canvas") as HTMLCanvasElement;
+const toySlider = document.getElementById("chi-toy-slider") as HTMLInputElement;
+const toyReadout = document.getElementById("chi-toy-readout") as HTMLSpanElement;
+
+function drawToyHistogram(fraction: number): void {
+  const ctx = toyCanvasEl.getContext("2d");
+  if (!ctx) {
+    return;
+  }
+  const w = toyCanvasEl.width;
+  const h = toyCanvasEl.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = 16;
+  const baseY = h - 24;
+  const usableH = baseY - pad;
+  let maxCount = 1;
+  for (const [a, b] of TOY_PAIRS) {
+    maxCount = Math.max(maxCount, a, b);
+  }
+
+  const pairW = (w - pad * 2) / TOY_PAIRS.length;
+  const barW = pairW * 0.32;
+  const evenColor = cssVar("--accent-2");
+  const oddColor = cssVar("--accent");
+  let chi2 = 0;
+
+  TOY_PAIRS.forEach(([a, b], i) => {
+    const mean = (a + b) / 2;
+    const a2 = a * (1 - fraction / 2) + b * (fraction / 2);
+    const b2 = b * (1 - fraction / 2) + a * (fraction / 2);
+    // Chi-squared contribution against the "pair is equal" expectation (the mean).
+    if (mean > 0) {
+      chi2 += ((a2 - mean) * (a2 - mean)) / mean + ((b2 - mean) * (b2 - mean)) / mean;
+    }
+    const x0 = pad + i * pairW + pairW * 0.1;
+    const ha = (a2 / maxCount) * usableH;
+    const hb = (b2 / maxCount) * usableH;
+    ctx.fillStyle = evenColor;
+    ctx.fillRect(x0, baseY - ha, barW, ha);
+    ctx.fillStyle = oddColor;
+    ctx.fillRect(x0 + barW + 3, baseY - hb, barW, hb);
+  });
+
+  // Baseline.
+  ctx.strokeStyle = cssVar("--border");
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, baseY + 0.5);
+  ctx.lineTo(w - pad, baseY + 0.5);
+  ctx.stroke();
+
+  // Chi-squared readout drawn onto the caption (text, not just canvas, for a11y).
+  toyReadout.textContent = `${Math.round(fraction * 100)}%`;
+  const captionEl = document.getElementById("chi-toy-caption") as HTMLElement;
+  const detected = chi2 < 4; // heuristic: near-equalized pairs give a small residual
+  captionEl.innerHTML =
+    `Embedded fraction <strong>${Math.round(fraction * 100)}%</strong> · residual χ² over these 8 pairs = ` +
+    `<strong>${chi2.toFixed(1)}</strong>. ` +
+    (detected
+      ? `<span class="status-warn">Pairs nearly equalized — this is the LSB fingerprint the real test flags.</span>`
+      : `Pairs still lopsided — looks like a natural cover.`);
+}
+
+function updateToy(): void {
+  drawToyHistogram(Number(toySlider.value) / 100);
+}
+toySlider.addEventListener("input", updateToy);
+updateToy();
 
 // --- Chi-squared exhibit ---
 
@@ -930,6 +1298,57 @@ function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof
 
 // --- DCT exhibit ---
 
+// DCT basis-pattern preview: render the 8×8 wave the hovered coefficient controls.
+// Basis(u,v) at pixel (i,j) = cos((2i+1)uπ/16)·cos((2j+1)vπ/16), normalized to gray.
+const dctBasisCanvas = document.getElementById("dct-basis-canvas") as HTMLCanvasElement;
+const dctBasisText = document.getElementById("dct-basis-text") as HTMLSpanElement;
+
+function drawDctBasis(u: number, v: number): void {
+  const ctx = dctBasisCanvas.getContext("2d");
+  if (!ctx) {
+    return;
+  }
+  const size = 8;
+  const img = new ImageData(size, size);
+  for (let j = 0; j < size; j += 1) {
+    for (let i = 0; i < size; i += 1) {
+      const val = Math.cos(((2 * i + 1) * u * Math.PI) / 16) * Math.cos(((2 * j + 1) * v * Math.PI) / 16);
+      const g = clamp255(128 + val * 127);
+      const idx = (j * size + i) * 4;
+      img.data[idx] = g;
+      img.data[idx + 1] = g;
+      img.data[idx + 2] = g;
+      img.data[idx + 3] = 255;
+    }
+  }
+  const tmp = document.createElement("canvas");
+  tmp.width = size;
+  tmp.height = size;
+  tmp.getContext("2d")?.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, 64, 64);
+  ctx.drawImage(tmp, 0, 0, 64, 64);
+
+  const kind = u === 0 && v === 0 ? "DC term — the block's average brightness" : "AC term — carries texture at this frequency";
+  dctBasisText.textContent = `Coefficient (u=${u}, v=${v}): ${kind}. Brighter/darker bands show the wave this coefficient scales.`;
+}
+
+function attachBasisHover(canvasId: string): void {
+  const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+  if (!canvas) {
+    return;
+  }
+  canvas.addEventListener("mousemove", (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const u = Math.min(7, Math.max(0, Math.floor(((event.clientX - rect.left) / rect.width) * 8)));
+    const v = Math.min(7, Math.max(0, Math.floor(((event.clientY - rect.top) / rect.height) * 8)));
+    drawDctBasis(u, v);
+  });
+}
+attachBasisHover("dct-before");
+attachBasisHover("dct-after");
+drawDctBasis(1, 0);
+
 (document.getElementById("dct-transform") as HTMLButtonElement).addEventListener("click", () => {
   dctState = computeDctBlocks(coverImage);
   drawDctHeatmap("dct-before", dctState.blocks[0], new Set<string>(), 0);
@@ -973,7 +1392,7 @@ function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof
 (document.getElementById("adapt-map") as HTMLButtonElement).addEventListener("click", () => {
   adaptiveGradient = sobelGradient(coverImage);
   drawCostMap(adaptiveGradient, coverImage, "adapt-map-canvas");
-  adaptStats.innerHTML = "Texture map computed via Sobel gradient magnitude. High texture = lower embedding cost.";
+  adaptStats.innerHTML = "Texture map computed via Sobel gradient magnitude. Green = busy/textured = low embedding cost (safe to hide in); red = smooth = high cost (risky).";
 });
 
 (document.getElementById("adapt-embed") as HTMLButtonElement).addEventListener("click", () => {
@@ -993,8 +1412,11 @@ function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof
   adaptiveStego = stego;
   adaptiveChanged = changed;
   adaptHasEmbedded = true;
+  refreshDepHints();
   drawLocations(coverImage, changed, "adapt-locations");
-  adaptStats.innerHTML = `Adaptive embedding wrote ${bits.length} bits, clustered in textured regions first.`;
+  markFirstBitsOnCostMap(changed);
+  drawResidual(adaptiveStego, "residual-adapt", RESIDUAL_GAIN, changed);
+  adaptStats.innerHTML = `Adaptive embedding wrote ${bits.length} bits, clustered in textured regions first. Compare the two residual maps below — adaptive's changes hide in texture.`;
 });
 
 (document.getElementById("adapt-seq") as HTMLButtonElement).addEventListener("click", () => {
@@ -1013,8 +1435,10 @@ function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof
   sequentialStego = stego;
   sequentialChanged = changed;
   seqHasEmbedded = true;
+  refreshDepHints();
   drawLocations(coverImage, changed, "seq-locations");
-  adaptStats.innerHTML += " Sequential baseline plotted for comparison.";
+  drawResidual(sequentialStego, "residual-seq", RESIDUAL_GAIN, changed);
+  adaptStats.innerHTML += " Sequential baseline plotted — its residual map shows changes on the smooth sky.";
 });
 
 (document.getElementById("adapt-compare") as HTMLButtonElement).addEventListener("click", () => {
@@ -1036,4 +1460,5 @@ function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof
   `;
 });
 
+refreshDepHints();
 installThemeToggle();
