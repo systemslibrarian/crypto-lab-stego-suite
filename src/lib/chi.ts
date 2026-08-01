@@ -19,22 +19,36 @@ export type ChiResult = {
 export function chiSquaredSteganalysis(image: ImageData): ChiResult {
   const hist = computeHistogram(image);
   let chi2 = 0;
+  let usedPairs = 0;
   // Westfeld-Pfitzmann sum one term PER PAIR: the observed count of the EVEN value 2k
   // against the pair's arithmetic mean. The odd member is not a second free category —
   // its deviation is exactly the negative of the even member's, so adding it would
-  // double the statistic while the degrees of freedom (128 pairs - 1 = 127) stay put.
-  // With the doubled form a fully embedded carrier lands near chi2 = 128 and scores
-  // p ~= 0.44, i.e. "not detected"; with the correct form it lands near 64 and scores
-  // p ~= 1, which is the behaviour this exhibit teaches.
+  // double the statistic while the degrees of freedom stay put. With the doubled form a
+  // fully embedded carrier lands near chi2 = 128 and scores p ~= 0.44, i.e. "not
+  // detected"; with the correct form it lands near 64 and scores p ~= 1, which is the
+  // behaviour this exhibit teaches.
+  //
+  // A pair with no samples at all contributes no term, so it is not a compared category
+  // and must not be counted in the degrees of freedom either. Hard-coding dof = 127 for
+  // an image that only populates a handful of pairs is not a rounding error: a clean,
+  // never-embedded cover with a limited palette (a screenshot, a logo, a cartoon, a
+  // small crop) sums maybe 4-16 terms, lands at chi2 ~ 10-40, and Q(127/2, chi2/2)
+  // returns 1.0 — the exhibit then prints "LSB embedding detected, 100.00%" about an
+  // image nothing was ever hidden in. Against the honest dof the same carriers score
+  // well under 1% and read as clean.
   for (let k = 0; k < 128; k += 1) {
     const a = hist[2 * k];
     const b = hist[2 * k + 1];
     const e = (a + b) / 2;
     if (e > 0) {
       chi2 += ((a - e) * (a - e)) / e;
+      usedPairs += 1;
     }
   }
-  const dof = 127;
+  // One constraint is spent estimating each pair's mean from its own total, leaving
+  // usedPairs - 1 free categories. Floor at 1 so a degenerate single-pair image still
+  // yields a defined statistic rather than gammaQ's NaN at a <= 0.
+  const dof = Math.max(1, usedPairs - 1);
   const pEmbed = gammaQ(dof / 2, chi2 / 2);
   return { chi2, pEmbed, dof };
 }

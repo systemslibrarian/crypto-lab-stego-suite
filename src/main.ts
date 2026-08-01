@@ -195,8 +195,11 @@ app.innerHTML = `
       <h2 id="exhibit-3-heading"><span class="exhibit-step" aria-hidden="true">3</span>Exhibit 3 — Chi-Squared Steganalysis: Detecting LSB</h2>
       <p>
         Westfeld &amp; Pfitzmann (IH 1999) pair-value test over (0,1), (2,3), ..., (254,255). LSB embedding tends to equalize each pair.
-        This implementation computes a real chi-squared statistic over 127 degrees of freedom and reports the
+        This implementation computes a real chi-squared statistic and reports the
         <strong>probability of embedding</strong> = <em>Q</em>(dof/2, χ²/2). Near 1 ⇒ the carrier looks LSB-embedded; near 0 ⇒ it looks like a natural cover.
+        The degrees of freedom are counted from the value-pairs this carrier actually populates, minus one — 127 for a
+        full 8-bit histogram, fewer for a limited-palette image such as a screenshot or a logo. Empty pairs contribute no
+        term to the sum, so counting them anyway would score a clean narrow-palette cover as certainly embedded.
       </p>
       <div class="toy" id="chi-toy" aria-labelledby="chi-toy-heading">
         <h3 id="chi-toy-heading">First, the whole idea in one picture</h3>
@@ -215,7 +218,8 @@ app.innerHTML = `
         <div class="figure"><h4>8 value-pairs, LSB randomization equalizing each pair</h4><canvas id="chi-toy-canvas" width="480" height="180" role="img" aria-label="Toy histogram of eight value pairs whose paired bars equalize toward their shared mean as the embedded fraction rises"></canvas></div>
         <p class="toy-caption" id="chi-toy-caption">
           At 0% the pairs are lopsided (natural cover). Slide toward 100% and each (even, odd) pair converges to one flat
-          level — the fingerprint the real test below detects across all 128 pairs of an 8-bit channel (127 degrees of freedom).
+          level — the fingerprint the real test below detects across the 128 pairs of an 8-bit channel (127 degrees of
+          freedom when the carrier populates them all).
         </p>
       </div>
 
@@ -226,7 +230,7 @@ app.innerHTML = `
       </div>
       <small class="dep-hint" id="chi-dep-hint" aria-live="polite">Tip: do Exhibit 2 first — “Test stego image” needs a message embedded before it has anything to detect.</small>
       <div class="stats" id="chi-results" aria-live="polite" role="status"></div>
-      <div class="figure"><h4>Chi-squared distribution (dof = 127)</h4><canvas id="chi-plot" width="640" height="220" role="img" aria-label="Chi-squared probability distribution with test statistic marker"></canvas></div>
+      <div class="figure"><h4 id="chi-plot-caption">Chi-squared distribution</h4><canvas id="chi-plot" width="640" height="220" role="img" aria-label="Chi-squared probability distribution with test statistic marker"></canvas></div>
       <div id="chi-curve" aria-live="polite"></div>
       <div class="callout">
         <strong>Why this matters:</strong> the test does not need the original cover image and runs quickly,
@@ -461,6 +465,12 @@ function drawHistogram(hist: number[], canvasId: string): void {
 
 function drawChiPlot(canvasId: string, chi2: number, dof: number): void {
   const ctx = getCtx(canvasId);
+  // The curve is drawn for the dof actually used, so the caption has to say the same
+  // number rather than a fixed 127 the statistic may not have been computed against.
+  const caption = document.getElementById("chi-plot-caption");
+  if (caption) {
+    caption.textContent = `Chi-squared distribution (dof = ${dof})`;
+  }
   const w = ctx.canvas.width;
   const h = ctx.canvas.height;
   const maxX = dof * 2.5;
@@ -1171,7 +1181,7 @@ renderWalk();
 // randomizing swaps a value only with its pair-partner, so each pair (a,b) relaxes
 // toward its mean: a' = a(1 - f/2) + b(f/2). At f=1 both columns equal (a+b)/2.
 // We also show the resulting chi-squared over these 8 pairs so the toy connects
-// numerically to the 127-dof statistic on the real image.
+// numerically to the full-histogram statistic on the real image.
 
 const TOY_PAIRS: Array<[number, number]> = [
   [82, 30],
@@ -1453,11 +1463,24 @@ drawDctBasis(1, 0);
   const seqTexture = meanGradientAt(adaptiveGradient, sequentialChanged);
   const adaptSmooth = smoothFractionAt(adaptiveGradient, adaptiveChanged);
   const seqSmooth = smoothFractionAt(adaptiveGradient, sequentialChanged);
+  // Read the chi-square verdict off the statistic instead of asserting it. The usual
+  // outcome at these payload sizes is that the global test flags neither, but that is
+  // an observation about this run, not a fact we get to state before measuring it.
+  const seqSeen = seq.pEmbed > DETECT_THRESHOLD;
+  const adaptSeen = adaptive.pEmbed > DETECT_THRESHOLD;
+  const chiVerdict =
+    !seqSeen && !adaptSeen
+      ? "Whole-image chi-square flags neither at this payload — the crude global test is blind here."
+      : seqSeen && adaptSeen
+        ? "Whole-image chi-square flags both at this payload — this carrier is filled enough for even the crude global test to fire."
+        : seqSeen
+          ? "Whole-image chi-square flags the sequential carrier but not the adaptive one."
+          : "Whole-image chi-square flags the adaptive carrier but not the sequential one.";
   adaptStats.innerHTML = `
     <div>Same ${adaptiveChanged.length.toLocaleString()}-bit payload, different placement:</div>
     <div>Mean texture at embedding sites — adaptive <strong>${adaptTexture.toFixed(1)}</strong> vs sequential <strong>${seqTexture.toFixed(1)}</strong> (higher = busier, harder to model).</div>
     <div>Bits landing in smooth regions — adaptive <strong>${(adaptSmooth * 100).toFixed(1)}%</strong> vs sequential <strong>${(seqSmooth * 100).toFixed(1)}%</strong> (lower is stealthier).</div>
-    <div>Whole-image chi-square sees neither at this payload (P(embedding): sequential ${(seq.pEmbed * 100).toFixed(2)}%, adaptive ${(adaptive.pEmbed * 100).toFixed(2)}%) — the crude global test is blind here. Adaptive's advantage shows up against richer-model / ML detectors, by keeping bits out of smooth regions where any detector looks first.</div>
+    <div>${chiVerdict} (P(embedding): sequential ${(seq.pEmbed * 100).toFixed(2)}%, adaptive ${(adaptive.pEmbed * 100).toFixed(2)}%.) Adaptive's advantage shows up against richer-model / ML detectors, by keeping bits out of smooth regions where any detector looks first.</div>
   `;
 });
 

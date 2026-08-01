@@ -42,6 +42,51 @@ describe("chi-squared steganalysis", () => {
     const stego = embedBitsSpatial(cover, bits).stego;
     expect(chiSquaredSteganalysis(stego).pEmbed).toBeLessThan(0.5);
   });
+
+  // A pair with no samples contributes no term to the sum, so it is not a compared
+  // category and must not be counted in the degrees of freedom. Hard-coding dof = 127
+  // for a limited-palette image (screenshot, logo, cartoon, small crop) made clean
+  // covers score Q(63.5, chi2/2) = 1.0 and print "LSB embedding detected, 100.00%".
+  describe("limited-palette covers", () => {
+    /** Greyscale carrier using only `pairs` value-pairs, each split (e+d, e-d). */
+    function craft(pairs: number, e: number, d: number): ImageData {
+      const samples: number[] = [];
+      for (let k = 0; k < pairs; k += 1) {
+        const v = 2 * (k + 40);
+        for (let i = 0; i < e + d; i += 1) samples.push(v);
+        for (let i = 0; i < e - d; i += 1) samples.push(v + 1);
+      }
+      const px = Math.ceil(samples.length / 3);
+      const data = new Uint8ClampedArray(px * 4);
+      for (let i = 0; i < samples.length; i += 1) {
+        data[Math.floor(i / 3) * 4 + (i % 3)] = samples[i];
+      }
+      for (let p = 0; p < px; p += 1) data[p * 4 + 3] = 255;
+      return new ImageData(data, px, 1);
+    }
+
+    it("counts only the pairs it actually compared as degrees of freedom", () => {
+      for (const pairs of [4, 8, 16]) {
+        expect(chiSquaredSteganalysis(craft(pairs, 768, 54)).dof).toBe(pairs - 1);
+      }
+    });
+
+    it("does not flag a clean limited-palette cover as embedded", () => {
+      for (const [pairs, e, d] of [
+        [4, 1500, 60],
+        [8, 768, 54],
+        [8, 768, 60],
+      ]) {
+        expect(chiSquaredSteganalysis(craft(pairs, e, d)).pEmbed).toBeLessThan(0.5);
+      }
+    });
+
+    it("never reports a degrees-of-freedom that would make gammaQ undefined", () => {
+      const single = chiSquaredSteganalysis(craft(1, 900, 40));
+      expect(single.dof).toBeGreaterThanOrEqual(1);
+      expect(Number.isNaN(single.pEmbed)).toBe(false);
+    });
+  });
 });
 
 describe("adaptive placement metrics", () => {
