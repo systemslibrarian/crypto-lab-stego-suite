@@ -273,9 +273,9 @@ app.innerHTML = `
       </div>
       <div class="stats" id="dct-stats" aria-live="polite" role="status"></div>
       <div class="canvas-grid">
-        <div class="figure"><h4>DCT heatmap before</h4><canvas id="dct-before" width="240" height="240" role="img" aria-label="DCT coefficient heatmap before embedding"></canvas></div>
-        <div class="figure"><h4>DCT heatmap after (modified highlighted)</h4><canvas id="dct-after" width="240" height="240" role="img" aria-label="DCT coefficient heatmap after embedding with changes highlighted"></canvas></div>
-        <div class="figure"><h4>Spatial image after inverse DCT</h4><canvas id="dct-image" width="256" height="256" role="img" aria-label="Image reconstructed from inverse DCT"></canvas></div>
+        <div class="figure"><h3>DCT heatmap before</h3><canvas id="dct-before" width="240" height="240" role="img" aria-label="DCT coefficient heatmap before embedding"></canvas></div>
+        <div class="figure"><h3>DCT heatmap after (modified highlighted)</h3><canvas id="dct-after" width="240" height="240" role="img" aria-label="DCT coefficient heatmap after embedding with changes highlighted"></canvas></div>
+        <div class="figure"><h3>Spatial image after inverse DCT</h3><canvas id="dct-image" width="256" height="256" role="img" aria-label="Image reconstructed from inverse DCT"></canvas></div>
       </div>
       <div class="callout">
         <strong>Why this matters:</strong> DCT-domain hiding is operationally important because JPEG dominates web imagery.
@@ -309,9 +309,9 @@ app.innerHTML = `
       <small class="dep-hint" id="adapt-dep-hint" aria-live="polite">Tip: run both “Adaptive embed” and “Sequential LSB embed” before “Compare” — the comparison needs both placements to contrast them.</small>
       <div class="stats" id="adapt-stats" aria-live="polite" role="status"></div>
       <div class="canvas-grid">
-        <div class="figure"><h4>Texture cost map — green = textured/busy = cheap to hide in; red = smooth = risky</h4><canvas id="adapt-map-canvas" width="256" height="256" role="img" aria-label="Texture cost map: green marks textured busy regions that are cheap and safe to hide in, red marks smooth regions that are risky; small markers show where adaptive embedding placed its first bits"></canvas><small class="residual-note">Adaptive embeds where the image is busy (green), because a change buried in texture is hard to spot. After you run “Adaptive embed”, the small markers show where its first bits landed — all in the green, textured zones, never the red sky.</small></div>
-        <div class="figure"><h4>Adaptive embedding locations</h4><canvas id="adapt-locations" width="256" height="256" role="img" aria-label="Image showing where adaptive embedding placed payload bits"></canvas></div>
-        <div class="figure"><h4>Sequential embedding locations</h4><canvas id="seq-locations" width="256" height="256" role="img" aria-label="Image showing where sequential embedding placed payload bits"></canvas></div>
+        <div class="figure"><h3>Texture cost map — green = textured/busy = cheap to hide in; red = smooth = risky</h3><canvas id="adapt-map-canvas" width="256" height="256" role="img" aria-label="Texture cost map: green marks textured busy regions that are cheap and safe to hide in, red marks smooth regions that are risky; small markers show where adaptive embedding placed its first bits"></canvas><small class="residual-note">Adaptive embeds where the image is busy (green), because a change buried in texture is hard to spot. After you run “Adaptive embed”, the small markers show where its first bits landed — all in the green, textured zones, never the red sky.</small></div>
+        <div class="figure"><h3>Adaptive embedding locations</h3><canvas id="adapt-locations" width="256" height="256" role="img" aria-label="Image showing where adaptive embedding placed payload bits"></canvas></div>
+        <div class="figure"><h3>Sequential embedding locations</h3><canvas id="seq-locations" width="256" height="256" role="img" aria-label="Image showing where sequential embedding placed payload bits"></canvas></div>
       </div>
       <h3>What a modern detector sees: the noise residual</h3>
       <p class="residual-note">
