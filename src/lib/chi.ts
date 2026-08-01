@@ -19,13 +19,19 @@ export type ChiResult = {
 export function chiSquaredSteganalysis(image: ImageData): ChiResult {
   const hist = computeHistogram(image);
   let chi2 = 0;
+  // Westfeld-Pfitzmann sum one term PER PAIR: the observed count of the EVEN value 2k
+  // against the pair's arithmetic mean. The odd member is not a second free category —
+  // its deviation is exactly the negative of the even member's, so adding it would
+  // double the statistic while the degrees of freedom (128 pairs - 1 = 127) stay put.
+  // With the doubled form a fully embedded carrier lands near chi2 = 128 and scores
+  // p ~= 0.44, i.e. "not detected"; with the correct form it lands near 64 and scores
+  // p ~= 1, which is the behaviour this exhibit teaches.
   for (let k = 0; k < 128; k += 1) {
     const a = hist[2 * k];
     const b = hist[2 * k + 1];
     const e = (a + b) / 2;
     if (e > 0) {
       chi2 += ((a - e) * (a - e)) / e;
-      chi2 += ((b - e) * (b - e)) / e;
     }
   }
   const dof = 127;

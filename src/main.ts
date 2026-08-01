@@ -1215,8 +1215,9 @@ function drawToyHistogram(fraction: number): void {
     const a2 = a * (1 - fraction / 2) + b * (fraction / 2);
     const b2 = b * (1 - fraction / 2) + a * (fraction / 2);
     // Chi-squared contribution against the "pair is equal" expectation (the mean).
+    // One term per pair (the even member), matching chiSquaredSteganalysis.
     if (mean > 0) {
-      chi2 += ((a2 - mean) * (a2 - mean)) / mean + ((b2 - mean) * (b2 - mean)) / mean;
+      chi2 += ((a2 - mean) * (a2 - mean)) / mean;
     }
     const x0 = pad + i * pairW + pairW * 0.1;
     const ha = (a2 / maxCount) * usableH;
@@ -1238,7 +1239,7 @@ function drawToyHistogram(fraction: number): void {
   // Chi-squared readout drawn onto the caption (text, not just canvas, for a11y).
   toyReadout.textContent = `${Math.round(fraction * 100)}%`;
   const captionEl = document.getElementById("chi-toy-caption") as HTMLElement;
-  const detected = chi2 < 4; // heuristic: near-equalized pairs give a small residual
+  const detected = chi2 < 2; // heuristic: near-equalized pairs give a small residual
   captionEl.innerHTML =
     `Embedded fraction <strong>${Math.round(fraction * 100)}%</strong> · residual χ² over these 8 pairs = ` +
     `<strong>${chi2.toFixed(1)}</strong>. ` +
