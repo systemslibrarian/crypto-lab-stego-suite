@@ -9,6 +9,7 @@
   --accent-2: #2ec4b6;
   --danger: #ff6b6b;
   --border: #2a4b58;
+  --control-border: #7295a3;
   --shadow: rgba(0, 0, 0, 0.28);
   --focus-ring: var(--accent);
   --font-head: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
@@ -28,6 +29,7 @@
   --accent-2: #0f9b8e;
   --danger: #b13030;
   --border: #c6d8e7;
+  --control-border: #6b7f99;
   --shadow: rgba(20, 30, 40, 0.12);
   --focus-ring: var(--accent-2);
 }
@@ -279,6 +281,12 @@ button {
   font-family: inherit;
   font-size: 0.98rem;
   padding: 0.55rem 0.65rem;
+}
+
+textarea,
+input[type="text"],
+input[type="password"] {
+  border-color: var(--control-border);
 }
 
 input[type="checkbox"] {
