@@ -734,6 +734,13 @@ small {
   color: var(--muted);
 }
 
+/* `display: block` above outranks the UA's `[hidden] { display: none }`, so the
+   sequencing tips stayed on screen forever even though refreshDepHints() sets
+   .hidden once the prerequisite step has been run. Restore the retirement. */
+.dep-hint[hidden] {
+  display: none;
+}
+
 /* ═══ Chi-squared toy histogram ═══ */
 .toy {
   margin: 0.8rem 0;

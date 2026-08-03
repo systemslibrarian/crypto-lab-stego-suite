@@ -793,9 +793,16 @@ async function fileToCoverImage(file: File, size: number): Promise<ImageData> {
 /** Decode a PNG to ImageData at its natural size, preserving exact pixels for extraction. */
 async function fileToExactImage(file: File): Promise<ImageData> {
   const bitmap = await createImageBitmap(file);
+  // close() releases the bitmap AND zeroes its width/height, so the dimensions
+  // have to be read before it. Reading bitmap.width after the close made the
+  // getImageData call below a 0x0 read, which throws — and the caller's catch
+  // turned every upload into "Could not read that PNG", so the whole
+  // download-then-re-upload extraction path was dead.
+  const width = bitmap.width;
+  const height = bitmap.height;
   const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     throw new Error("Could not get a 2D context for image import.");
@@ -803,7 +810,7 @@ async function fileToExactImage(file: File): Promise<ImageData> {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close();
-  return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+  return ctx.getImageData(0, 0, width, height);
 }
 
 // --- Initial render ---
@@ -1148,11 +1155,26 @@ function renderWalk(): void {
     ? `its LSB flips <strong>${beforeBinary[7]} → ${afterBinary[7]}</strong>, so the value goes <strong>${before} → ${after}</strong> (a change of 1).`
     : `its LSB is already <strong>${msgBit}</strong>, so the value stays <strong>${before}</strong> — no change needed.`;
 
+  // Which packet byte this payload bit came from. `clampedStep` counts BITS, so
+  // the byte is step/8 (+1 to make it 1-based); printing the bit index as a byte
+  // position claimed bit 10 lived in byte 10, and asserted every one of the first
+  // ten bits was in the 4-byte length header, which stops being true at byte 5.
+  const packetByte = Math.floor(clampedStep / 8) + 1;
+  const bitInByte = (clampedStep % 8) + 1;
+  const bytePart =
+    packetByte <= 4
+      ? ", part of the 4-byte length header the demo writes before your text"
+      : packetByte === 5
+        ? ", the mode byte that records whether the payload was encrypted"
+        : packetByte <= 9
+          ? ", part of the 4-byte payload-length field"
+          : " of your message text itself";
+
   walkCaptionEl.innerHTML =
     `<strong>Bit ${clampedStep + 1} of ${bits.length}</strong> — message bit <strong>${msgBit}</strong> → ` +
     `${CHANNEL_NAMES[site.channel]} channel of pixel (${x}, ${y}). ` +
     `Reading the byte in binary, ${changeText} ` +
-    `<span class="walk-note">Byte position ${clampedStep + 1} is part of the 4-byte length header the demo writes before your text.</span>`;
+    `<span class="walk-note">That is bit ${bitInByte} of packet byte ${packetByte}${bytePart}.</span>`;
 
   (document.getElementById("lsb-walk-prev") as HTMLButtonElement).disabled = clampedStep <= 0;
   (document.getElementById("lsb-walk-next") as HTMLButtonElement).disabled = clampedStep >= Math.min(WALK_STEPS, bits.length) - 1;
