@@ -91,7 +91,11 @@ app.innerHTML = `
         naturally: <strong>encrypt first, then embed</strong> — if the hidden payload is ever found, it's still just ciphertext.
       </p>
       <p>Five terms you'll meet in every exhibit below:</p>
-      <div class="table-wrap">
+      <!-- tabindex + role: .table-wrap scrolls horizontally and a table holds
+           nothing focusable, so without a tab stop the table is unreachable by
+           keyboard at phone width (WCAG 2.1.1). role="region" is what makes the
+           tab stop announce itself instead of arriving unnamed. -->
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Steganography vocabulary">
       <table>
         <thead>
           <tr><th scope="col">Vocabulary</th><th scope="col">Meaning</th></tr>
@@ -141,7 +145,13 @@ app.innerHTML = `
         <small id="lsb-capacity-text">Capacity usage updates as you type.</small>
       </div>
 
-      <div class="walkthrough" id="lsb-walk" aria-labelledby="lsb-walk-heading">
+      <!-- role="region": without a role this is a generic div, and BOTH aria-label
+           and aria-labelledby are PROHIBITED on generic — the browser discards the
+           name and axe files it under aria-prohibited-attr in "incomplete", never
+           as a violation, so the heading below named this panel for nobody. Both
+           this walkthrough and the chi-squared toy are self-contained titled
+           sub-exhibits with their own controls, which is what a region is for. -->
+      <div class="walkthrough" id="lsb-walk" role="region" aria-labelledby="lsb-walk-heading">
         <h3 id="lsb-walk-heading">Watch one bit hide at a time</h3>
         <p class="walk-intro">
           Before the bulk embed, step through the <em>first payload bits</em> one at a time. Each bit is written into
@@ -201,7 +211,7 @@ app.innerHTML = `
         full 8-bit histogram, fewer for a limited-palette image such as a screenshot or a logo. Empty pairs contribute no
         term to the sum, so counting them anyway would score a clean narrow-palette cover as certainly embedded.
       </p>
-      <div class="toy" id="chi-toy" aria-labelledby="chi-toy-heading">
+      <div class="toy" id="chi-toy" role="region" aria-labelledby="chi-toy-heading">
         <h3 id="chi-toy-heading">First, the whole idea in one picture</h3>
         <p class="toy-intro">
           Group pixel values into pairs: (0,1), (2,3), (4,5)… In a natural image the two columns of a pair are usually
@@ -1326,7 +1336,7 @@ function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof
     const flag = res.pEmbed > DETECT_THRESHOLD ? "✗ detected" : "✓ evades";
     return `<tr><td>${Math.round(r * 100)}%</td><td>${bitCount.toLocaleString()}</td><td>${res.chi2.toFixed(2)}</td><td>${(res.pEmbed * 100).toFixed(2)}%</td><td>${flag}</td></tr>`;
   });
-  chiCurve.innerHTML = `<div class="table-wrap"><table><thead><tr><th scope="col">Payload rate</th><th scope="col">Bits</th><th scope="col">χ²</th><th scope="col">P(embedding)</th><th scope="col">Verdict</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><small>Sequential whole-image embedding: the global test only flags the carrier as the payload nears full capacity.</small>`;
+  chiCurve.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Payload detectability curve"><table><thead><tr><th scope="col">Payload rate</th><th scope="col">Bits</th><th scope="col">χ²</th><th scope="col">P(embedding)</th><th scope="col">Verdict</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><small>Sequential whole-image embedding: the global test only flags the carrier as the payload nears full capacity.</small>`;
 });
 
 // --- DCT exhibit ---
