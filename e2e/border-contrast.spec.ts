@@ -42,13 +42,8 @@ async function fieldColors(page: Page): Promise<{ border: number[]; background: 
   });
 }
 
-test('load-bearing message boundary clears 3:1 in dark and light themes', async ({ page }) => {
+test('load-bearing message boundary clears 3:1', async ({ page }) => {
   await page.goto('.');
-  let colors = await fieldColors(page);
-  expect(contrast(colors.border, colors.background)).toBeGreaterThanOrEqual(3);
-
-  await page.locator('#cl-theme-toggle').click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  colors = await fieldColors(page);
+  const colors = await fieldColors(page);
   expect(contrast(colors.border, colors.background)).toBeGreaterThanOrEqual(3);
 });

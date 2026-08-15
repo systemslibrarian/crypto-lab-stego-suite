@@ -25,7 +25,6 @@ export const NONTEXT_BASELINE: Record<
   "control-boundary|button#chi-run-curve": { ratio: 1.46, required: 3.0, unverified: false },
   "control-boundary|button#chi-test-cover": { ratio: 1.46, required: 3.0, unverified: false },
   "control-boundary|button#chi-test-stego": { ratio: 1.46, required: 3.0, unverified: false },
-  "control-boundary|button#cl-theme-toggle.cl-btn.cl-icon": { ratio: 1.83, required: 3.0, unverified: false },
   "control-boundary|button#cover-sample.ghost": { ratio: 1.05, required: 3.0, unverified: false },
   "control-boundary|button#dct-embed": { ratio: 1.46, required: 3.0, unverified: false },
   "control-boundary|button#dct-extract": { ratio: 1.46, required: 3.0, unverified: false },
