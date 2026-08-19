@@ -152,27 +152,6 @@ h1 {
   line-height: 1.55;
 }
 
-.theme-toggle {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 2.6rem;
-  height: 2.6rem;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
-  color: var(--text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  cursor: pointer;
-}
-
-.theme-toggle:hover {
-  background: color-mix(in srgb, var(--accent) 25%, transparent);
-}
-
 .source-bar {
   margin-top: 0.9rem;
   display: flex;
@@ -459,11 +438,6 @@ small {
     width: 100%;
     padding: 0 0.7rem;
     margin-top: 0.8rem;
-  }
-
-  .theme-toggle {
-    top: 0.7rem;
-    right: 0.7rem;
   }
 
   .row {

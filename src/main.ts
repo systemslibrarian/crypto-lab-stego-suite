@@ -53,7 +53,6 @@ if (!app) {
 app.innerHTML = `
   <main class="shell" id="main-content">
     <header class="cl-hero">
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode"><span aria-hidden="true">🌙</span></button>
       <div class="cl-hero-main">
         <h1 class="cl-hero-title">Stego Suite</h1>
         <p class="cl-hero-sub">LSB · DCT · Adaptive embedding · Chi-squared steganalysis</p>
@@ -382,29 +381,6 @@ app.innerHTML = `
     </section>
   </main>
 `;
-
-function installThemeToggle(): void {
-  const root = document.documentElement;
-  const button = document.getElementById("theme-toggle") as HTMLButtonElement | null;
-  if (!button) {
-    return;
-  }
-
-  const sync = (): void => {
-    const isDark = root.getAttribute("data-theme") !== "light";
-    button.innerHTML = `<span aria-hidden="true">${isDark ? "🌙" : "☀️"}</span>`;
-    button.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
-  };
-
-  sync();
-  button.addEventListener("click", () => {
-    const current = root.getAttribute("data-theme") === "light" ? "light" : "dark";
-    const next = current === "dark" ? "light" : "dark";
-    root.setAttribute("data-theme", next);
-    localStorage.setItem("theme", next);
-    sync();
-  });
-}
 
 // --- Canvas / drawing helpers (DOM-specific; pure logic lives in src/lib) ---
 
@@ -1517,4 +1493,3 @@ drawDctBasis(1, 0);
 });
 
 refreshDepHints();
-installThemeToggle();

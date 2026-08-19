@@ -39,17 +39,6 @@ function click(id: string): void {
 beforeAll(async () => {
   document.body.innerHTML = '<div id="app"></div>';
   HTMLCanvasElement.prototype.getContext = (() => fakeCtx()) as unknown as HTMLCanvasElement["getContext"];
-  if (typeof globalThis.localStorage === "undefined") {
-    const store = new Map<string, string>();
-    (globalThis as { localStorage?: unknown }).localStorage = {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => void store.set(k, String(v)),
-      removeItem: (k: string) => void store.delete(k),
-      clear: () => store.clear(),
-      key: () => null,
-      length: 0
-    };
-  }
   await import("./main");
 });
 
@@ -102,10 +91,24 @@ describe("DOM smoke test", () => {
     expect(stats).toContain("Mean texture");
   });
 
-  it("resets and toggles theme", () => {
+  it("resets the LSB exhibit", () => {
     click("lsb-reset");
     expect((document.getElementById("lsb-stats") as HTMLDivElement).textContent).toContain("reset");
-    click("theme-toggle");
-    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  });
+
+  // This lab used to build its own `#theme-toggle` and rely on one inline
+  // `display:none!important` rule in index.html to keep it off the page, while
+  // its click handler stayed live: it flipped `data-theme` and persisted the
+  // choice to localStorage — the exact behaviour the fleet dropped the shared
+  // toggle to stop. The button and handler are deleted, so assert the control is
+  // absent from the DOM rather than merely invisible, and that rendering the app
+  // never writes the theme. Pinning it is the <head> boot script's job alone.
+  it("ships no theme control and never writes the theme", () => {
+    expect(
+      document.querySelectorAll(
+        "#theme-toggle, #themeToggle, .theme-toggle, .theme-toggle-btn, [data-theme-toggle]"
+      )
+    ).toHaveLength(0);
+    expect(document.documentElement.getAttribute("data-theme")).toBeNull();
   });
 });
