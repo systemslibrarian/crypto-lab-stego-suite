@@ -813,11 +813,22 @@ small {
   align-items: center;
   gap: 0.7rem;
   margin-bottom: 0.6rem;
+  /* Last resort below ~330px of row width: the readout drops to its own line
+     instead of pushing the document sideways (WCAG 1.4.10 Reflow). */
+  flex-wrap: wrap;
 }
 
 .toy-slider-row input[type="range"] {
-  flex: 1 1 auto;
+  /* `flex: 1 1 auto` alone never shrinks: a flex item's min-width defaults to
+     `auto`, and for a range input that resolves to its ~129px intrinsic
+     width, so the row's floor was label + 129px + readout. On the CI runner,
+     where neither webfont resolves and the label falls back to a wider sans,
+     that floor exceeded a 380px viewport. An explicit `min-width: 0` and a
+     small basis let the slider give ground first — what the row always meant
+     to do — instead of the readout overhanging the page edge. */
+  flex: 1 1 4rem;
   width: auto;
+  min-width: 0;
   accent-color: var(--accent);
 }
 
