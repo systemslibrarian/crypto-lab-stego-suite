@@ -82,3 +82,5 @@ npm run check      # typecheck + test + production build (what CI runs)
 *Part of the [Crypto Lab](https://crypto-lab.systemslibrarian.dev/) suite.*
 
 *"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31*
+
+<!-- no-op: verifying the PR gate runs the browser gate and skips the deploy -->
