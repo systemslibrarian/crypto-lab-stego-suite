@@ -68,7 +68,7 @@ The chi-squared exhibit reports the Westfeld–Pfitzmann **probability of embedd
 
 ## Engineering
 
-The steganographic, cryptographic, DCT, and steganalysis core lives in dependency-free, fully unit-tested modules under [`src/lib`](src/lib); `src/main.ts` is the DOM/canvas layer. The Vitest suite covers bit/packet round-trips, AES-256-GCM, LSB and DCT embed/extract, the incomplete-gamma p-function against closed forms, distortion metrics, and a jsdom integration smoke test that drives every control. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs typecheck + tests + build on every push and pull request.
+The steganographic, cryptographic, DCT, and steganalysis core lives in dependency-free, fully unit-tested modules under [`src/lib`](src/lib); `src/main.ts` is the DOM/canvas layer. The Vitest suite covers bit/packet round-trips, AES-256-GCM, LSB and DCT embed/extract, the incomplete-gamma p-function against closed forms, distortion metrics, and a jsdom integration smoke test that drives every control. CI ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) runs typecheck + tests + build on every push and pull request.
 
 Additional npm scripts:
 
