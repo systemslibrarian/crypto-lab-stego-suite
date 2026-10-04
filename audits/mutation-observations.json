@@ -1,0 +1,60 @@
+{
+  "scope": "beginner front-section: one patch per rendered verdict",
+  "observations": [
+    {
+      "id": "M1",
+      "why": "an extract that returns the message without reading the image",
+      "file": "src/first-look.ts",
+      "owningTest": "step 3 control: the same read of the untouched original returns nothing",
+      "observed": "KILLED",
+      "baselinePassed": true,
+      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
+      "bundleMutated": "0f53512456e8f67dd517cba0211d8f4e627ea2d12fd1eb08fae3348dffa8d05b",
+      "exitCode": 1
+    },
+    {
+      "id": "M2",
+      "why": "a detector hard-wired to report a finding",
+      "file": "src/first-look.ts",
+      "owningTest": "step 4: the detector reports nothing found on both pictures",
+      "observed": "KILLED",
+      "baselinePassed": true,
+      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
+      "bundleMutated": "ea688666c6471076a0e1d3569756db0edea7a83a98002bbebce935354deca689",
+      "exitCode": 1
+    },
+    {
+      "id": "M3",
+      "why": "a detector hard-wired to report nothing",
+      "file": "src/first-look.ts",
+      "owningTest": "step 5: filling the picture to capacity IS reported",
+      "observed": "KILLED",
+      "baselinePassed": true,
+      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
+      "bundleMutated": "c7ad3c7fbb17b40cd56498f4ce8c94bc8e647bf897230c874f80a411d97feb0b",
+      "exitCode": 1
+    },
+    {
+      "id": "M4",
+      "why": "an embed that changes nothing while reporting success",
+      "file": "src/first-look.ts",
+      "owningTest": "step 1: hiding the sentence really changes the picture",
+      "observed": "KILLED",
+      "baselinePassed": true,
+      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
+      "bundleMutated": "ce69da07d6254b1dfb003fd5945680292ce6e1a82eb15890700358e77e31301f",
+      "exitCode": 1
+    },
+    {
+      "id": "M5",
+      "why": "the read is pointed at the wrong picture, so the round trip reports a message it never recovered",
+      "file": "src/first-look.ts",
+      "owningTest": "step 3: the sentence comes back out of the picture",
+      "observed": "KILLED",
+      "baselinePassed": true,
+      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
+      "bundleMutated": "9f81d5972cb8cb048d85bd797c92ad0e3cc0dba281aec0592ef16e9594498cc3",
+      "exitCode": 1
+    }
+  ]
+}

@@ -12,7 +12,10 @@
     "test:watch": "vitest",
     "test:a11y": "playwright test",
     "check": "npm run typecheck && npm run test && npm run build",
-    "deploy": "npm run build && gh-pages -d dist"
+    "deploy": "npm run build && gh-pages -d dist",
+    "test:claims": "playwright test e2e/first-look.spec.ts",
+    "test:front-a11y": "playwright test e2e/first-look-a11y.spec.ts",
+    "test:mutations": "node scripts/mutate.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
