@@ -16,6 +16,14 @@ export type ChiResult = {
   dof: number;
 };
 
+/**
+ * Above this probability-of-embedding the carrier is reported as detected.
+ * It lives here, beside the function that produces `pEmbed`, because two
+ * readers of the same number must not be able to drift to different verdicts:
+ * the chi-squared exhibit and the beginner front-section both import it.
+ */
+export const DETECT_THRESHOLD = 0.5;
+
 export function chiSquaredSteganalysis(image: ImageData): ChiResult {
   const hist = computeHistogram(image);
   let chi2 = 0;

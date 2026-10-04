@@ -848,3 +848,129 @@ output,
 .mono {
   overflow-wrap: anywhere;
 }
+
+/* ---- Beginner front-section --------------------------------------------
+   Sits between the hero and the cover picker. It uses the page's own tokens
+   so it reads as the opening of this lab rather than a panel bolted on, and
+   it deliberately carries no badge on the two pictures in step 2: the reader
+   is being asked to see no difference, and a marker on either one would
+   answer the question for them. */
+
+.first-look {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent-ink);
+  border-radius: var(--radius);
+  padding: clamp(1rem, 3vw, 1.75rem);
+  margin-bottom: 1.5rem;
+}
+
+.first-look > p { max-width: 68ch; }
+
+.fl-steps {
+  list-style: none;
+  margin: 1.4rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1.3rem;
+}
+
+.fl-step {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.fl-step h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+
+.fl-step p { max-width: 68ch; }
+
+.fl-num {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent-ink);
+  color: var(--accent-ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.fl-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0.8rem 0;
+}
+
+.fl-pair figure {
+  margin: 0;
+  flex: 1 1 14rem;
+  min-width: min(100%, 11rem);
+}
+
+.fl-pair canvas {
+  width: 100%;
+  height: auto;
+  max-width: 256px;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.fl-pair figcaption {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.fl-status,
+.fl-verdict {
+  max-width: 68ch;
+  margin: 0.6rem 0 0;
+  line-height: 1.55;
+}
+
+.fl-status { color: var(--muted); }
+
+.fl-verdict:empty { display: none; }
+
+.fl-verdict.fl-neutral { color: var(--text); }
+.fl-verdict.fl-good { color: var(--accent-2); }
+/* A flagged picture is the detector working, not the lab failing, so this is
+   the page's accent rather than its danger colour. */
+.fl-verdict.fl-finding { color: var(--accent-ink); font-weight: 600; }
+
+.fl-working { margin-top: 0.9rem; }
+.fl-working summary { cursor: pointer; }
+.fl-working-text { color: var(--muted); max-width: 68ch; margin: 0.5rem 0 0; }
+
+.fl-closing {
+  margin: 1.4rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  max-width: 68ch;
+}
+
+/* The section sits on --bg-soft rather than the page ground, and the base
+   button border (--border) measures 1.78:1 against it -- under the 3:1 WCAG
+   1.4.11 asks of a control boundary. The host lab's own non-text-contrast
+   audit caught this on the first full run. --control-border is the token that
+   exists for exactly this and measures 5.1:1 here. */
+.first-look button {
+  border-color: var(--control-border);
+  width: auto;
+}
+
+.first-look button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

@@ -31,7 +31,8 @@ import {
   renderDctToImage,
   type DctState
 } from "./lib/dct";
-import { chiSquaredSteganalysis, meanGradientAt, smoothFractionAt, sobelGradient } from "./lib/chi";
+import { chiSquaredSteganalysis, DETECT_THRESHOLD, meanGradientAt, smoothFractionAt, sobelGradient } from "./lib/chi";
+import { mountFirstLook } from "./first-look";
 
 type LsbPacket = {
   mode: "plain" | "encrypted";
@@ -67,6 +68,83 @@ app.innerHTML = `
         </p>
       </aside>
     </header>
+
+    <section class="first-look" id="first-look" aria-labelledby="first-look-heading">
+      <h2 id="first-look-heading">Start here: hide a message in a picture</h2>
+      <p class="lead-sentence">
+        <strong>Encryption makes a message unreadable. Hiding one makes it look like nothing was sent at all.</strong>
+      </p>
+      <p>
+        Four buttons, in order. Everything below runs the same code the exhibits further down use —
+        the only thing left out here is the vocabulary.
+      </p>
+
+      <ol class="fl-steps">
+        <li class="fl-step">
+          <h3><span class="fl-num" aria-hidden="true">1</span>Hide it</h3>
+          <p>A sample picture and a short sentence. One button puts the sentence inside the picture.</p>
+          <button id="fl-hide" type="button">Hide a message in this picture</button>
+          <p id="fl-hide-status" class="fl-status" role="status" aria-live="polite">Nothing hidden yet.</p>
+        </li>
+
+        <li class="fl-step">
+          <h3><span class="fl-num" aria-hidden="true">2</span>Look at it</h3>
+          <p>The original on the left, the one carrying the message on the right. Look as long as you like.</p>
+          <div class="fl-pair">
+            <figure><canvas id="fl-cover-canvas" width="256" height="256" role="img" aria-label="The original sample picture, before anything was hidden in it"></canvas><figcaption>Original</figcaption></figure>
+            <figure><canvas id="fl-stego-canvas" width="256" height="256" role="img" aria-label="The same picture after a message was hidden inside it"></canvas><figcaption>With a message inside</figcaption></figure>
+          </div>
+          <p id="fl-look-status" class="fl-verdict fl-neutral" role="status" aria-live="polite">Press the button above to fill these in.</p>
+        </li>
+
+        <li class="fl-step">
+          <h3><span class="fl-num" aria-hidden="true">3</span>Get it back</h3>
+          <p>Something really is in there. Read it out of the picture — and read the untouched original the same way, which should give nothing.</p>
+          <button id="fl-extract" type="button" disabled>Read the message back</button>
+          <p id="fl-recovered" class="fl-verdict" role="status" aria-live="polite"></p>
+          <p id="fl-control" class="fl-verdict" role="status" aria-live="polite"></p>
+        </li>
+
+        <li class="fl-step">
+          <h3><span class="fl-num" aria-hidden="true">4</span>Try to find it</h3>
+          <p>Now hand both pictures to a program that hunts for hidden messages, and see what it says about each.</p>
+          <button id="fl-detect" type="button" disabled>Check both pictures for a hidden message</button>
+          <p id="fl-detect-cover" class="fl-verdict" role="status" aria-live="polite"></p>
+          <p id="fl-detect-stego" class="fl-verdict" role="status" aria-live="polite"></p>
+          <details class="fl-working">
+            <summary>The numbers behind that</summary>
+            <p id="fl-working" class="fl-working-text"></p>
+          </details>
+        </li>
+
+        <li class="fl-step">
+          <h3><span class="fl-num" aria-hidden="true">5</span>Now fill the picture up</h3>
+          <p>
+            One sentence used almost none of the room the picture has. Hide enough to use all of it — the same method, the same
+            picture, the same detector — and the answer changes.
+          </p>
+          <button id="fl-fill" type="button" disabled>Fill the picture and check again</button>
+          <div class="fl-pair">
+            <figure><canvas id="fl-filled-canvas" width="256" height="256" role="img" aria-label="The same picture after it was filled to capacity with hidden text"></canvas><figcaption>Filled to capacity</figcaption></figure>
+          </div>
+          <p id="fl-detect-filled" class="fl-verdict" role="status" aria-live="polite"></p>
+          <details class="fl-working">
+            <summary>The numbers behind that</summary>
+            <p id="fl-working-filled" class="fl-working-text"></p>
+          </details>
+        </li>
+      </ol>
+
+      <p class="fl-closing">
+        So the lesson is not "hidden things get found". It is that <strong>a clean result is not proof that nothing is
+        hidden</strong> — the sentence was in there the whole time, and you had already read it back. Detectors answer
+        a narrower question than people assume. And hiding is not encrypting: nothing about the message here is secret
+        except the technique, so anyone who guesses the method reads it.
+        <a href="#exhibit-1">Exhibit 1</a> sets out that difference properly;
+        <a href="#exhibit-3">Exhibit 3</a> explains the detector and walks the payload rates in between; the DCT and
+        adaptive exhibits are what people do to stay clean at higher rates.
+      </p>
+    </section>
 
     <div class="source-bar" role="group" aria-label="Cover image source">
       <span class="source-label">Cover image (feeds every exhibit):</span>
@@ -914,6 +992,11 @@ async function decodeLsbPacket(parsed: ParsedLsb): Promise<{ packet: LsbPacket }
   return { packet: { mode: "plain", message: new TextDecoder().decode(parsed.payload), passphraseUsed: false } };
 }
 
+// --- Beginner front-section ---
+// Mounted before the exhibit wiring below: it is the first thing on the page,
+// and it shares their embed, extract and detector rather than copying them.
+mountFirstLook();
+
 // --- Cover source controls ---
 
 (document.getElementById("cover-sample") as HTMLButtonElement).addEventListener("click", () => {
@@ -1274,7 +1357,7 @@ updateToy();
 
 // --- Chi-squared exhibit ---
 
-const DETECT_THRESHOLD = 0.5;
+// Imported from ./lib/chi so this exhibit and the front-section share one number.
 
 function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof: number }): string {
   const detected = res.pEmbed > DETECT_THRESHOLD;
