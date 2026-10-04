@@ -8,8 +8,8 @@
       "owningTest": "step 3 control: the same read of the untouched original returns nothing",
       "observed": "KILLED",
       "baselinePassed": true,
-      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
-      "bundleMutated": "0f53512456e8f67dd517cba0211d8f4e627ea2d12fd1eb08fae3348dffa8d05b",
+      "bundleBefore": "5c93367c32e5e9a23ce48053075f33674b55b8df0d9195ea1f740d98d817c044",
+      "bundleMutated": "26d807598e82ea196d713c55a9118f6936c47228924fe363a4f137690b05cde3",
       "exitCode": 1
     },
     {
@@ -19,8 +19,8 @@
       "owningTest": "step 4: the detector reports nothing found on both pictures",
       "observed": "KILLED",
       "baselinePassed": true,
-      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
-      "bundleMutated": "ea688666c6471076a0e1d3569756db0edea7a83a98002bbebce935354deca689",
+      "bundleBefore": "5c93367c32e5e9a23ce48053075f33674b55b8df0d9195ea1f740d98d817c044",
+      "bundleMutated": "f2c8d5134ade076ad7e8dc505d59556d3f5c815e3253f10214714d8913c0dacc",
       "exitCode": 1
     },
     {
@@ -30,8 +30,8 @@
       "owningTest": "step 5: filling the picture to capacity IS reported",
       "observed": "KILLED",
       "baselinePassed": true,
-      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
-      "bundleMutated": "c7ad3c7fbb17b40cd56498f4ce8c94bc8e647bf897230c874f80a411d97feb0b",
+      "bundleBefore": "5c93367c32e5e9a23ce48053075f33674b55b8df0d9195ea1f740d98d817c044",
+      "bundleMutated": "ba9330ee57c6585c4b69fb48e5ccfabc5838f3f0c67c9e9a2c7888f9bb8ac341",
       "exitCode": 1
     },
     {
@@ -41,8 +41,8 @@
       "owningTest": "step 1: hiding the sentence really changes the picture",
       "observed": "KILLED",
       "baselinePassed": true,
-      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
-      "bundleMutated": "ce69da07d6254b1dfb003fd5945680292ce6e1a82eb15890700358e77e31301f",
+      "bundleBefore": "5c93367c32e5e9a23ce48053075f33674b55b8df0d9195ea1f740d98d817c044",
+      "bundleMutated": "0d74bc9fa991ebce7abf93ea0aaa05f971da45e5a6f622fb1619eac221c5534a",
       "exitCode": 1
     },
     {
@@ -52,8 +52,8 @@
       "owningTest": "step 3: the sentence comes back out of the picture",
       "observed": "KILLED",
       "baselinePassed": true,
-      "bundleBefore": "7b59c49ee4acf9bf228ee803265150a0d7876a067a88d145fc459474557e71a7",
-      "bundleMutated": "9f81d5972cb8cb048d85bd797c92ad0e3cc0dba281aec0592ef16e9594498cc3",
+      "bundleBefore": "5c93367c32e5e9a23ce48053075f33674b55b8df0d9195ea1f740d98d817c044",
+      "bundleMutated": "8d60d96850b69a25e68d14c952ff1d170ff6166355aedd17289a10fb68c634cf",
       "exitCode": 1
     }
   ]
