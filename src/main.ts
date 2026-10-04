@@ -58,13 +58,13 @@ app.innerHTML = `
         <h1 class="cl-hero-title">Stego Suite</h1>
         <p class="cl-hero-sub">LSB · DCT · Adaptive embedding · Chi-squared steganalysis</p>
         <p class="cl-hero-desc">
-          Embed secret messages in an image with LSB, F5-inspired DCT, and WOW-inspired adaptive methods, then run real chi-squared steganalysis to see which ones a detector catches.
+          Hide a message inside a picture, look at the result and see nothing, read the message back out — then hand the same picture to a program that hunts for hidden messages and watch it find nothing either.
         </p>
       </div>
       <aside class="cl-hero-why" aria-label="Why it matters">
         <span class="cl-hero-why-label">WHY IT MATTERS</span>
         <p class="cl-hero-why-text">
-          Cryptography hides a message's meaning; steganography hides its very existence — decisive where being seen to communicate is itself the risk. But hidden bits leave statistical traces, so every scheme races an evolving steganalyzer.
+          Sometimes the risk is not that someone can read your message. It is that anyone can see you sent one at all. Hiding a message inside something ordinary answers that — and the catch is that hidden is not the same as safe, because whether it stays hidden depends on how much you hide and who is looking.
         </p>
       </aside>
     </header>
