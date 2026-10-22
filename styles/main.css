@@ -754,6 +754,15 @@ small {
   color: var(--muted);
 }
 
+.lsb-kdf-note {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0.6rem 0;
+}
+
+.lsb-kdf-note a { color: var(--accent-ink); }
+
 /* `display: block` above outranks the UA's `[hidden] { display: none }`, so the
    sequencing tips stayed on screen forever even though refreshDepHints() sets
    .hidden once the prerequisite step has been run. Restore the retirement. */

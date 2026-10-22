@@ -7,6 +7,9 @@ import {
   decodeTextPacket,
   encodeTextPacket,
   lsbPacketBytes,
+  LSB_MODE_AES_GCM_LEGACY,
+  LSB_MODE_AES_GCM_PBKDF2_600K,
+  LSB_MODE_PLAIN,
   makeLsbBody,
   parseLsbBody,
   parsePacketBytes
@@ -38,6 +41,7 @@ type LsbPacket = {
   mode: "plain" | "encrypted";
   message: string;
   passphraseUsed: boolean;
+  legacyKdf: boolean;
 };
 
 const CANVAS_SIZE = 256;
@@ -217,6 +221,7 @@ app.innerHTML = `
           <label for="lsb-encrypt"><input id="lsb-encrypt" type="checkbox" /> Encrypt before embedding (AES-256-GCM)</label>
         </div>
       </div>
+      <p class="lsb-kdf-note">New encrypted images derive their key with PBKDF2-HMAC-SHA-256 at 600,000 iterations; earlier images at 120,000 remain readable and are flagged after recovery. A strong passphrase still matters. <a href="https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html">OWASP password storage guidance</a> gives the 600,000-round reference for PBKDF2-HMAC-SHA-256. This is a browser teaching demo, not a production secret store.</p>
       <div class="capacity" role="group" aria-label="Payload capacity usage">
         <div class="capacity-track"><div id="lsb-capacity-fill" class="capacity-fill"></div></div>
         <small id="lsb-capacity-text">Capacity usage updates as you type.</small>
@@ -977,19 +982,31 @@ function readLsbPacket(image: ImageData): ParsedLsb | { error: string } {
 }
 
 async function decodeLsbPacket(parsed: ParsedLsb): Promise<{ packet: LsbPacket } | { error: string }> {
-  if (parsed.mode === 1) {
+  if (parsed.mode === LSB_MODE_AES_GCM_LEGACY || parsed.mode === LSB_MODE_AES_GCM_PBKDF2_600K) {
     const passphrase = lsbPassphraseEl.value;
     if (!passphrase) {
-      return { error: "Encrypted payload found: enter the passphrase to decrypt." };
+      return { error: parsed.mode === LSB_MODE_AES_GCM_LEGACY
+        ? "Legacy encrypted payload (120,000 PBKDF2 iterations): enter the passphrase to decrypt."
+        : "Encrypted payload found: enter the passphrase to decrypt." };
     }
     try {
-      const message = await decryptAesGcm(parsed.payload, passphrase);
-      return { packet: { mode: "encrypted", message, passphraseUsed: true } };
+      const message = await decryptAesGcm(parsed.payload, passphrase, parsed.mode);
+      return { packet: { mode: "encrypted", message, passphraseUsed: true, legacyKdf: parsed.mode === LSB_MODE_AES_GCM_LEGACY } };
     } catch {
       return { error: "Decryption failed. Check the passphrase." };
     }
   }
-  return { packet: { mode: "plain", message: new TextDecoder().decode(parsed.payload), passphraseUsed: false } };
+  if (parsed.mode !== LSB_MODE_PLAIN) {
+    return { error: "Unsupported hidden packet mode." };
+  }
+  return { packet: { mode: "plain", message: new TextDecoder().decode(parsed.payload), passphraseUsed: false, legacyKdf: false } };
+}
+
+function recoveredModeDescription(packet: LsbPacket): string {
+  const mode = `Mode: ${packet.mode}${packet.passphraseUsed ? " (passphrase used)" : ""}`;
+  return packet.legacyKdf
+    ? `${mode}. <span class="status-warn">Legacy encryption used 120,000 PBKDF2 iterations; re-embed with a strong passphrase to use the newer 600,000-round mode.</span>`
+    : mode;
 }
 
 // --- Beginner front-section ---
@@ -1040,7 +1057,7 @@ lsbEmbedBtn.addEventListener("click", async () => {
   await withBusy(lsbEmbedBtn, "Embedding…", async () => {
     const plainBytes = new TextEncoder().encode(message);
     const payload = encrypt ? await encryptAesGcm(message, passphrase) : plainBytes;
-    const body = makeLsbBody(encrypt ? 1 : 0, payload);
+    const body = makeLsbBody(encrypt ? LSB_MODE_AES_GCM_PBKDF2_600K : LSB_MODE_PLAIN, payload);
     const packet = buildPacketBytes(body);
     const bits = bytesToBits(packet);
     const capacity = lsbCapacityBits(coverImage);
@@ -1066,7 +1083,7 @@ lsbEmbedBtn.addEventListener("click", async () => {
 
     lsbStats.innerHTML = `
       <div>Payload: ${plainBytes.length} bytes plaintext, ${payload.length} bytes stored. Capacity: ${(capacity / 8).toFixed(0)} bytes.</div>
-      <div>Mode: ${encrypt ? "AES-256-GCM then steganography" : "Plaintext steganography"}.</div>
+      <div>Mode: ${encrypt ? "AES-256-GCM with PBKDF2-HMAC-SHA-256 (600,000 iterations), then steganography" : "Plaintext steganography"}.</div>
       <div>Fidelity: PSNR ${psnrText}, max channel change ${metrics.maxDelta}, ${metrics.changedChannels.toLocaleString()} channels modified.</div>
       <div>${info}</div>
     `;
@@ -1091,7 +1108,7 @@ lsbExtractBtn.addEventListener("click", async () => {
       return;
     }
     const { packet } = decoded;
-    renderRecovered(lsbStats, packet.message, `Mode: ${packet.mode}${packet.passphraseUsed ? " (passphrase used)" : ""}`);
+    renderRecovered(lsbStats, packet.message, recoveredModeDescription(packet));
   });
 });
 
@@ -1132,7 +1149,7 @@ lsbExtractFileEl.addEventListener("change", async (event) => {
     renderRecovered(
       lsbStats,
       decoded.packet.message,
-      `Extracted from uploaded PNG (${image.width}×${image.height}) · mode: ${decoded.packet.mode}`
+      `Extracted from uploaded PNG (${image.width}×${image.height}) · ${recoveredModeDescription(decoded.packet)}`
     );
   } catch {
     lsbStats.innerHTML = `<span class="status-warn">Could not read that PNG.</span>`;

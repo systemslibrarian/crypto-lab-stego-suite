@@ -22,6 +22,8 @@ Stego Suite demonstrates three steganographic techniques — LSB (Least Signific
 
 Six exhibits cover steganography-vs-cryptography orientation, LSB substitution with pixel-level visualization and optional AES encryption, a real chi-squared steganalysis test detecting LSB embedding, F5-inspired DCT-domain embedding with 8×8 block transform visualization, WOW-inspired adaptive embedding using texture cost maps, and real-world cases from printer tracking dots to malware C2 channels. The exhibits are numbered as a suggested path, and dependent controls show inline hints when a prerequisite step is still pending. **Bring your own image:** upload any photo as the cover, embed a message, download the exact stego PNG, then re-upload to extract — a full round-trip on real imagery, with PSNR/fidelity metrics, a peak per-channel change readout, and a live capacity meter.
 
+For optional encryption, new PNGs use a random salt, PBKDF2-HMAC-SHA-256 at 600,000 iterations, and AES-256-GCM. The existing packet's mode byte identifies the KDF: mode 2 is used for new encrypted PNGs; mode 1 remains readable at its original 120,000 iterations and shows a legacy warning when recovered. Plaintext mode 0 is unchanged. The salt/IV/tag payload length and the image capacity calculation stay the same. [OWASP's Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) recommends at least 600,000 PBKDF2-HMAC-SHA-256 iterations for stored password verifiers; here we apply the same work-factor lesson to password-derived encryption against offline guessing, not as a compliance claim. Choose a strong passphrase: the work factor cannot rescue a weak one. This browser exercise is not a production encryption or secret-storage tool.
+
 Interactive teaching aids build the intuition before the machinery:
 
 1. **Steganography vs cryptography** — a one-line plain-language contrast, a five-term vocabulary table, and an expandable "History / going deeper" panel holding the Westfeld–Pfitzmann / Fridrich / SRNet arms-race citations.
@@ -36,6 +38,7 @@ Interactive teaching aids build the intuition before the machinery:
 - **JPEG compression destroys LSB** — re-encoding a JPEG wipes LSB modifications, so spatial LSB is useless for JPEG carriers (use DCT-domain methods instead).
 - **Embedding in smooth regions** — flat areas make statistical anomalies obvious; adaptive schemes concentrate changes in textured regions for exactly this reason.
 - **Stego without encryption** — steganography hides existence, not content; once a payload is detected, an unencrypted message is fully exposed.
+- **Weak passphrase or old encrypted PNG** — a discovered encrypted payload can be guessed offline. Mode 1 images used 120,000 PBKDF2 iterations; the app still opens them but warns you to recover and re-embed using the newer mode and a strong passphrase. Do not assume hiding a payload prevents offline guessing if it is found.
 - **Capacity vs detectability** — the more of the carrier a payload fills, the easier detection becomes; near-full embedding is precisely where even crude global tests start firing.
 
 ## Real-World Usage

@@ -1,6 +1,13 @@
 // Pure bit/byte/packet codec helpers shared by every exhibit.
 // No DOM dependencies so this module is unit-testable in isolation.
 
+// The mode byte is part of the existing LSB packet, before its payload. Keep
+// mode 1 for PNGs already exported with the original 120k-round KDF; new
+// encrypted packets use mode 2 so old images never silently change meaning.
+export const LSB_MODE_PLAIN = 0;
+export const LSB_MODE_AES_GCM_LEGACY = 1;
+export const LSB_MODE_AES_GCM_PBKDF2_600K = 2;
+
 export function bytesToBits(bytes: Uint8Array): number[] {
   const bits: number[] = [];
   for (const b of bytes) {
