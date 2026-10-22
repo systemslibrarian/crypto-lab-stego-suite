@@ -1002,8 +1002,8 @@ async function decodeLsbPacket(parsed: ParsedLsb): Promise<{ packet: LsbPacket }
   return { packet: { mode: "plain", message: new TextDecoder().decode(parsed.payload), passphraseUsed: false, legacyKdf: false } };
 }
 
-function recoveredModeDescription(packet: LsbPacket): string {
-  const mode = `Mode: ${packet.mode}${packet.passphraseUsed ? " (passphrase used)" : ""}`;
+function recoveredModeDescription(packet: LsbPacket, label = "Mode"): string {
+  const mode = `${label}: ${packet.mode}${packet.passphraseUsed ? " (passphrase used)" : ""}`;
   return packet.legacyKdf
     ? `${mode}. <span class="status-warn">Legacy encryption used 120,000 PBKDF2 iterations; re-embed with a strong passphrase to use the newer 600,000-round mode.</span>`
     : mode;
@@ -1083,7 +1083,7 @@ lsbEmbedBtn.addEventListener("click", async () => {
 
     lsbStats.innerHTML = `
       <div>Payload: ${plainBytes.length} bytes plaintext, ${payload.length} bytes stored. Capacity: ${(capacity / 8).toFixed(0)} bytes.</div>
-      <div>Mode: ${encrypt ? "AES-256-GCM with PBKDF2-HMAC-SHA-256 (600,000 iterations), then steganography" : "Plaintext steganography"}.</div>
+      <div>Mode: ${encrypt ? "AES-256-GCM then steganography (PBKDF2-HMAC-SHA-256, 600,000 iterations)" : "Plaintext steganography"}.</div>
       <div>Fidelity: PSNR ${psnrText}, max channel change ${metrics.maxDelta}, ${metrics.changedChannels.toLocaleString()} channels modified.</div>
       <div>${info}</div>
     `;
@@ -1149,7 +1149,7 @@ lsbExtractFileEl.addEventListener("change", async (event) => {
     renderRecovered(
       lsbStats,
       decoded.packet.message,
-      `Extracted from uploaded PNG (${image.width}×${image.height}) · ${recoveredModeDescription(decoded.packet)}`
+      `Extracted from uploaded PNG (${image.width}×${image.height}) · ${recoveredModeDescription(decoded.packet, "mode")}`
     );
   } catch {
     lsbStats.innerHTML = `<span class="status-warn">Could not read that PNG.</span>`;
