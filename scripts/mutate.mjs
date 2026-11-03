@@ -57,6 +57,78 @@ const cases = [
     replace: '    const out = readFromPicture(state.cover, state.bitCount);',
     test: 'step 3: the sentence comes back out of the picture',
     why: 'the read is pointed at the wrong picture, so the round trip reports a message it never recovered',
+  },,
+  {
+    id: 'SV1',
+    script: 'test:survival',
+    file: 'src/main.ts',
+    anchor: '    { name: "Exact PNG reload", apply: img => canvasRoundTrip(img, "image/png") },',
+    replace: '    { name: "Exact PNG reload", apply: img => canvasRoundTrip(img, "image/jpeg", 0.95) },',
+    test: 'survival: exact PNG reload recovers the message with no bit errors',
+    why: 'a "PNG reload" row that actually re-encodes lossily',
+  },
+  {
+    id: 'SV2',
+    script: 'test:survival',
+    file: 'src/lib/survival.ts',
+    anchor: '      return { outcome: "authentication failure", detail: "The packet structure survived, but AES-GCM rejected the altered ciphertext." };',
+    replace: '      return { outcome: "carrier failure", detail: "The packet structure survived, but AES-GCM rejected the altered ciphertext." };',
+    test: 'survival: an altered ciphertext is an authentication failure, not a carrier failure',
+    why: 'an authentication failure reported as a carrier failure',
+  },
+  {
+    id: 'SV3',
+    script: 'test:survival',
+    file: 'src/lib/survival.ts',
+    anchor: '  for (let i = 0; i < compared; i += 1) if (read[i] !== embedded[i]) errors += 1;',
+    replace: '',
+    test: 'survival: JPEG re-encoding is measured, not assumed',
+    why: 'a bit-error count that never compares the bits',
+  },
+  {
+    id: 'SV4',
+    script: 'test:survival',
+    file: 'src/lib/survival.ts',
+    anchor: '  const message = new TextDecoder().decode(parsed.payload);\n  return message === expectedMessage',
+    replace: '  const message = new TextDecoder().decode(parsed.payload);\n  return true || message === expectedMessage',
+    test: 'survival: a body bit flip in a plaintext carrier alters the message',
+    why: 'a plaintext packet reported recovered without comparing its text',
+  },
+  {
+    id: 'SV5',
+    script: 'test:survival',
+    file: 'src/lib/survival.ts',
+    anchor: '      psnr: sameSize ? distortion(stego, out).psnr : null,',
+    replace: '      psnr: 0,',
+    test: 'survival: crop, resize and noise each report a measured outcome',
+    why: 'a size-changing transformation reported as a same-size distortion',
+  },
+  {
+    id: 'SV6',
+    script: 'test:survival',
+    file: 'src/main.ts',
+    anchor: '  if (!lsbEmbedded) {\n    lsbSurvivalBody.replaceChildren();',
+    replace: '  if (false) {\n    lsbSurvivalBody.replaceChildren();',
+    test: 'survival: refuses before a message is embedded',
+    why: 'a comparison that runs with nothing embedded',
+  },
+  {
+    id: 'SV7',
+    script: 'test:survival',
+    file: 'src/main.ts',
+    anchor: 'it is not a probability that a message can be extracted',
+    replace: 'it is the probability that a message can be extracted',
+    test: 'survival: the detection score is not presented as an extraction probability',
+    why: 'a detection score labelled as an extraction probability',
+  },
+  {
+    id: 'SV8',
+    script: 'test:survival',
+    file: 'src/main.ts',
+    anchor: 'which is not a saved-JPEG round trip',
+    replace: 'which is a saved-JPEG round trip',
+    test: 'survival: in-memory DCT extraction is never reported as a saved-JPEG round trip',
+    why: 'in-memory DCT extraction described as a saved-JPEG round trip',
   },
 ];
 
@@ -99,7 +171,8 @@ try {
        refuses to count any output carrying an infrastructure error -- rightly,
        since it cannot tell which attempt produced it -- so the honest fix is to
        run one attempt and read it. Observed on M3 before this line existed. */
-    const args = ['run', 'test:claims', '--', '--retries=0', '--grep', c.test];
+    // A case runs the spec that owns its test; the front-section cases default to test:claims.
+    const args = ['run', c.script ?? 'test:claims', '--', '--retries=0', '--grep', c.test];
     const baseline = run(args);
     if (baseline.status !== 0) throw Error(c.id + ' BASELINE BLOCKED: ' + baseline.output);
 
@@ -145,6 +218,6 @@ try {
 mkdirSync('audits', { recursive: true });
 writeFileSync(
   'audits/mutation-observations.json',
-  JSON.stringify({ scope: 'beginner front-section: one patch per rendered verdict', observations }, null, 2) + '\n',
+  JSON.stringify({ scope: 'beginner front-section and carrier survival: one patch per rendered verdict', observations }, null, 2) + '\n',
 );
 if (failed) process.exitCode = 1;
