@@ -57,7 +57,7 @@ const cases = [
     replace: '    const out = readFromPicture(state.cover, state.bitCount);',
     test: 'step 3: the sentence comes back out of the picture',
     why: 'the read is pointed at the wrong picture, so the round trip reports a message it never recovered',
-  },,
+  },
   {
     id: 'SV1',
     script: 'test:survival',
