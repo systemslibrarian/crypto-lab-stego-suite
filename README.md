@@ -85,7 +85,7 @@ Each row reports three things separately: how much the picture changed (PSNR, or
 - **authentication failure:** an encrypted packet survived far enough for AES-GCM to reject it;
 - **message altered:** a plaintext packet decoded to different text.
 
-These are measurements on one image in one run, not guarantees. Lossy processing usually destroys the small changes LSB embedding relies on, and detecting a hidden message is a different outcome from recovering or destroying it (Peter Wayner, *Disappearing Cryptography*, 3rd ed., 2009, §9.5–9.5.2 and chapter 17). The chi-squared score in Exhibit 3 is not an extraction probability. Exhibit 4's extraction from in-memory DCT coefficients is not a saved-JPEG round trip, and this comparison does not test it.
+These are measurements on one image in one run, not guarantees. Lossy processing usually destroys the small changes LSB embedding relies on, and detecting a hidden message is a different outcome from recovering or destroying it (Peter Wayner, *Disappearing Cryptography*, 3rd ed., Morgan Kaufmann, 2009). The chi-squared score in Exhibit 3 is not an extraction probability. Exhibit 4's extraction from in-memory DCT coefficients is not a saved-JPEG round trip, and this comparison does not test it.
 
 The pure logic is in `src/lib/survival.ts`, covered by unit tests. `e2e/survival.spec.ts` drives the panel in a real browser, and `scripts/mutate.mjs` holds one mutation case per rendered verdict (SV1–SV8).
 

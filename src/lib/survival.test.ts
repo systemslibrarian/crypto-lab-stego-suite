@@ -8,9 +8,9 @@ import { assessCarrier, compareTransforms, cropLeft, payloadBitErrors, perturb, 
 /*
  * Carrier survival, written before survival.ts from the sources it implements:
  * Wayner, Disappearing Cryptography (3rd ed., 2009): lossy compression does not reconstruct a
- * carrier exactly and usually destroys subtle embedded changes (section 9.5); detecting that a
- * message may be present differs from recovering it, and an attacker can destroy a fragile
- * message without reading it (chapter 17). The ebook review adds: unchanged PNG reload must
+ * carrier exactly and usually destroys subtle embedded changes; detecting that a message may be
+ * present differs from recovering it, and an attacker can destroy a fragile message without
+ * reading it. The book is cited by title only. The ebook review adds: unchanged PNG reload must
  * succeed; transformed carriers report measured outcomes, not guaranteed survival; with
  * encryption, a carrier/header failure is distinct from an authentication failure where the
  * packet survives far enough to attempt decryption.

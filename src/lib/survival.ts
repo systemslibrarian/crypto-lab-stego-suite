@@ -2,7 +2,7 @@
 //
 // Hiding, detecting and destroying a message are different outcomes, and lossy processing of
 // a carrier usually destroys subtle embedded changes (Wayner, Disappearing Cryptography, 3rd
-// ed., section 9.5 and chapter 17). Every result here is a measurement on one image in one
+// ed., 2009). Every result here is a measurement on one image in one
 // run. Nothing in this module predicts survival in general.
 
 import { LSB_MODE_AES_GCM_LEGACY, LSB_MODE_AES_GCM_PBKDF2_600K, LSB_MODE_PLAIN, bitsToBytes, bytesToU32, parseLsbBody, parsePacketBytes } from "./bits";
