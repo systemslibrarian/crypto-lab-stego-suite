@@ -550,6 +550,11 @@ small {
   font-size: 1rem;
 }
 
+/* The survival comparison is new; its button meets the 3:1 boundary rule instead of inheriting the recorded button debt. */
+#lsb-survival-run {
+  border-color: var(--control-border);
+}
+
 .walk-intro {
   margin: 0 0 0.7rem;
   font-size: 0.9rem;

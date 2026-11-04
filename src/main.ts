@@ -36,6 +36,7 @@ import {
 } from "./lib/dct";
 import { chiSquaredSteganalysis, DETECT_THRESHOLD, meanGradientAt, smoothFractionAt, sobelGradient } from "./lib/chi";
 import { mountFirstLook } from "./first-look";
+import { compareTransforms, cropLeft, perturb, scaleBilinear, type SurvivalRow, type Transform } from "./lib/survival";
 
 type LsbPacket = {
   mode: "plain" | "encrypted";
@@ -269,6 +270,14 @@ app.innerHTML = `
         <button id="lsb-reset" type="button" class="ghost">Reset</button>
       </div>
       <div class="stats" id="lsb-stats" aria-live="polite" role="status"></div>
+      <div class="walkthrough" id="lsb-survival" role="region" aria-labelledby="lsb-survival-heading">
+        <h3 id="lsb-survival-heading">Does the message survive?</h3>
+        <p>Embed a message, then run each transformation on a copy of the stego image. The stego image itself is kept unchanged for comparison. Each row reports what was measured on this image in this run: how much the picture changed, how many embedded bits now read back wrongly, and what extraction produced. None of it is a promise about other images or other settings.</p>
+        <div class="controls"><button id="lsb-survival-run" type="button">Compare transformations</button></div>
+        <div class="table-wrap" id="lsb-survival-wrap" tabindex="0" role="region" aria-label="Carrier survival results" hidden><table id="lsb-survival-table"><caption>Measured on this image, this run</caption><thead><tr><th scope="col">Transformation</th><th scope="col">Image change</th><th scope="col">Embedded bits read wrongly</th><th scope="col">Extraction result</th></tr></thead><tbody></tbody></table></div>
+        <p id="lsb-survival-status" role="status" aria-live="polite"></p>
+        <p class="residual-note" id="lsb-survival-note">Detecting a message and extracting it are different questions. The chi-squared score in Exhibit 3 estimates whether LSB embedding is present; it is not a probability that a message can be extracted, and a low score is not evidence that a carrier is safe. Exhibit 4 extracts from DCT coefficients held in memory, which is not a saved-JPEG round trip; this comparison does not test it. With encryption on, a damaged packet header is a carrier failure, while a packet that survives but fails AES-GCM is an authentication failure.</p>
+      </div>
       <div class="canvas-grid">
         <div class="figure"><h4>Cover image</h4><canvas id="lsb-cover" width="256" height="256" role="img" aria-label="Cover image before steganographic embedding"></canvas></div>
         <div class="figure"><h4>Stego image</h4><canvas id="lsb-stego" width="256" height="256" role="img" aria-label="Stego image after LSB embedding"></canvas></div>
@@ -767,6 +776,8 @@ let adaptiveChanged: Uint32Array = new Uint32Array(0);
 let sequentialChanged: Uint32Array = new Uint32Array(0);
 
 let lsbHasEmbedded = false;
+/** What the LSB exhibit last embedded, kept so the survival comparison can measure against it. */
+let lsbEmbedded: { bits: number[]; message: string; passphrase?: string } | null = null;
 let dctHasEmbedded = false;
 let adaptHasEmbedded = false;
 let seqHasEmbedded = false;
@@ -823,6 +834,7 @@ function setCoverImage(image: ImageData, sourceLabel: string): void {
   adaptiveStego = cloneImageData(coverImage);
   sequentialStego = cloneImageData(coverImage);
   lsbHasEmbedded = false;
+  lsbEmbedded = null;
   dctHasEmbedded = false;
   adaptHasEmbedded = false;
   seqHasEmbedded = false;
@@ -1070,6 +1082,7 @@ lsbEmbedBtn.addEventListener("click", async () => {
     const result = embedBitsSpatial(coverImage, bits);
     lsbStegoImage = result.stego;
     lsbHasEmbedded = true;
+    lsbEmbedded = { bits, message, passphrase: encrypt ? passphrase : undefined };
     refreshDepHints();
     drawImageData(lsbStegoCtx, lsbStegoImage);
     drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);
@@ -1158,9 +1171,97 @@ lsbExtractFileEl.addEventListener("change", async (event) => {
   }
 });
 
+// --- Carrier survival comparison (Exhibit 2) ---
+
+/** Encode the image with the browser's own encoder and decode it again, as saving and reopening would. */
+async function canvasRoundTrip(image: ImageData, type: "image/png" | "image/jpeg", quality?: number): Promise<ImageData> {
+  const src = document.createElement("canvas");
+  src.width = image.width;
+  src.height = image.height;
+  src.getContext("2d")!.putImageData(image, 0, 0);
+  const blob = await new Promise<Blob>((resolve, reject) => src.toBlob(b => (b ? resolve(b) : reject(new Error("Encoding failed."))), type, quality));
+  const bitmap = await createImageBitmap(blob);
+  const dst = document.createElement("canvas");
+  dst.width = bitmap.width;
+  dst.height = bitmap.height;
+  const ctx = dst.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(bitmap, 0, 0);
+  return ctx.getImageData(0, 0, dst.width, dst.height);
+}
+
+/** Flip the least significant bit of one embedded slot (red, green, blue order; alpha skipped). */
+function flipEmbeddedBit(image: ImageData, slot: number): ImageData {
+  const out = cloneImageData(image);
+  out.data[Math.floor(slot / 3) * 4 + (slot % 3)] ^= 1;
+  return out;
+}
+
+function survivalTransforms(bitCount: number): Transform[] {
+  return [
+    { name: "Exact PNG reload", apply: img => canvasRoundTrip(img, "image/png") },
+    { name: "JPEG, quality 0.95", apply: img => canvasRoundTrip(img, "image/jpeg", 0.95) },
+    { name: "JPEG, quality 0.75", apply: img => canvasRoundTrip(img, "image/jpeg", 0.75) },
+    { name: "JPEG, quality 0.50", apply: img => canvasRoundTrip(img, "image/jpeg", 0.5) },
+    { name: "Resize to 90% (bilinear)", apply: img => scaleBilinear(img, 0.9) },
+    { name: "Crop 4 pixels from the left", apply: img => cropLeft(img, 4) },
+    { name: "Noise: ±1 on 1% of colour channels", apply: img => perturb(img, 0.01, 7) },
+    { name: "One bit flipped in the packet header", apply: img => flipEmbeddedBit(img, 2) },
+    { name: "One bit flipped in the message body", apply: img => flipEmbeddedBit(img, bitCount - 20) }
+  ];
+}
+
+const SURVIVAL_LABELS: Record<SurvivalRow["outcome"], string> = {
+  "recovered": "Recovered",
+  "carrier failure": "Carrier failure",
+  "authentication failure": "Authentication failure",
+  "message altered": "Message altered"
+};
+
+function renderSurvivalRow(row: SurvivalRow): HTMLTableRowElement {
+  const tr = document.createElement("tr");
+  const th = document.createElement("th");
+  th.scope = "row";
+  th.textContent = row.name;
+  const change = row.psnr === null ? `Size changed: ${row.sizeNote}` : row.psnr === Infinity ? "Identical (PSNR ∞)" : `PSNR ${row.psnr.toFixed(1)} dB`;
+  const bits = `${row.bitErrors} of ${row.comparedBits} (${((100 * row.bitErrors) / row.comparedBits).toFixed(1)}%)`;
+  const tdChange = document.createElement("td");
+  tdChange.textContent = change;
+  const tdBits = document.createElement("td");
+  tdBits.textContent = bits;
+  const tdResult = document.createElement("td");
+  const label = document.createElement("strong");
+  label.textContent = SURVIVAL_LABELS[row.outcome];
+  const detail = document.createElement("span");
+  detail.textContent = row.detail;
+  tdResult.append(label, document.createElement("br"), detail);
+  tr.append(th, tdChange, tdBits, tdResult);
+  return tr;
+}
+
+const lsbSurvivalBtn = document.getElementById("lsb-survival-run") as HTMLButtonElement;
+const lsbSurvivalBody = (document.getElementById("lsb-survival-table") as HTMLTableElement).tBodies[0];
+const lsbSurvivalStatus = document.getElementById("lsb-survival-status") as HTMLParagraphElement;
+const lsbSurvivalWrap = document.getElementById("lsb-survival-wrap") as HTMLDivElement;
+lsbSurvivalBtn.addEventListener("click", async () => {
+  if (!lsbEmbedded) {
+    lsbSurvivalBody.replaceChildren();
+    lsbSurvivalWrap.hidden = true;
+    lsbSurvivalStatus.textContent = "Embed a message first; the comparison measures what happens to that message.";
+    return;
+  }
+  const embedded = lsbEmbedded;
+  await withBusy(lsbSurvivalBtn, "Comparing…", async () => {
+    const rows = await compareTransforms(lsbStegoImage, embedded.bits, embedded.message, embedded.passphrase, survivalTransforms(embedded.bits.length));
+    lsbSurvivalBody.replaceChildren(...rows.map(renderSurvivalRow));
+    lsbSurvivalWrap.hidden = false;
+    lsbSurvivalStatus.textContent = `Measured just now on this ${lsbStegoImage.width}×${lsbStegoImage.height} image${embedded.passphrase ? " with encryption on" : ""}. Change the cover, message or settings and run it again to compare.`;
+  });
+});
+
 (document.getElementById("lsb-reset") as HTMLButtonElement).addEventListener("click", () => {
   lsbStegoImage = cloneImageData(coverImage);
   lsbHasEmbedded = false;
+  lsbEmbedded = null;
   refreshDepHints();
   drawImageData(lsbStegoCtx, lsbStegoImage);
   drawZoom(lsbStegoImage, "lsb-zoom-stego", 80, 80);

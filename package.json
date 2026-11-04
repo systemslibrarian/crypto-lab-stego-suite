@@ -14,6 +14,7 @@
     "check": "npm run typecheck && npm run test && npm run build",
     "deploy": "gh workflow run deploy.yml --repo systemslibrarian/crypto-lab-stego-suite --ref main",
     "test:claims": "playwright test e2e/first-look.spec.ts",
+    "test:survival": "playwright test e2e/survival.spec.ts",
     "test:front-a11y": "playwright test e2e/first-look-a11y.spec.ts",
     "test:mutations": "node scripts/mutate.mjs",
     "test:publish-request": "node --test tests/publish-request.node.mjs"

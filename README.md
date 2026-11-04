@@ -69,6 +69,26 @@ npm run dev
 
 The chi-squared exhibit reports the Westfeld–Pfitzmann **probability of embedding** — `Q(dof/2, χ²/2)`, where ≈1 means the carrier looks LSB-embedded and ≈0 means it looks natural. It also surfaces the test's real blind spot: applied to a whole image it only fires reliably near full embedding, so partial and adaptive payloads slip past it. The adaptive exhibit quantifies *why* adaptive embedding is stealthier (mean texture at embedding sites, fraction of bits landing in smooth regions) rather than overclaiming a difference the crude global test cannot actually see.
 
+## Does the message survive?
+
+Exhibit 2 now ends with a transformation comparison. After a message is embedded, each transformation runs on a copy of the stego image, and the stego image itself is kept for comparison. The transformations are:
+- an exact PNG reload;
+- JPEG re-encoding at qualities 0.95, 0.75 and 0.50, using the browser's own encoder;
+- a 90% bilinear resize;
+- a 4-pixel crop;
+- ±1 noise on 1% of colour channels;
+- two targeted single-bit flips, one in the packet header and one in the message body.
+
+Each row reports three things separately: how much the picture changed (PSNR, or the new size), how many embedded bits now read back wrongly, and what extraction produced. Extraction can produce one of four results:
+- **recovered**;
+- **carrier failure:** the header or packet did not survive, so there was nothing to decrypt;
+- **authentication failure:** an encrypted packet survived far enough for AES-GCM to reject it;
+- **message altered:** a plaintext packet decoded to different text.
+
+These are measurements on one image in one run, not guarantees. Lossy processing usually destroys the small changes LSB embedding relies on, and detecting a hidden message is a different outcome from recovering or destroying it (Peter Wayner, *Disappearing Cryptography*, 3rd ed., 2009, §9.5–9.5.2 and chapter 17). The chi-squared score in Exhibit 3 is not an extraction probability. Exhibit 4's extraction from in-memory DCT coefficients is not a saved-JPEG round trip, and this comparison does not test it.
+
+The pure logic is in `src/lib/survival.ts`, covered by unit tests. `e2e/survival.spec.ts` drives the panel in a real browser, and `scripts/mutate.mjs` holds one mutation case per rendered verdict (SV1–SV8).
+
 ## Engineering
 
 The steganographic, cryptographic, DCT, and steganalysis core lives in dependency-free, fully unit-tested modules under [`src/lib`](src/lib); `src/main.ts` is the DOM/canvas layer. The Vitest suite covers bit/packet round-trips, AES-256-GCM, LSB and DCT embed/extract, the incomplete-gamma p-function against closed forms, distortion metrics, and a jsdom integration smoke test that drives every control. CI ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) runs typecheck + tests + build on every push and pull request.
