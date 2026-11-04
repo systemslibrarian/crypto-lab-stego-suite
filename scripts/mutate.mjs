@@ -107,8 +107,9 @@ const cases = [
     id: 'SV6',
     script: 'test:survival',
     file: 'src/main.ts',
-    anchor: '  if (!lsbEmbedded) {\n    lsbSurvivalBody.replaceChildren();',
-    replace: '  if (false) {\n    lsbSurvivalBody.replaceChildren();',
+    // Drop the refusal and fall back to an empty payload, so the patch still type-checks.
+    anchor: '  if (!lsbEmbedded) {\n    lsbSurvivalBody.replaceChildren();\n    lsbSurvivalWrap.hidden = true;\n    lsbSurvivalStatus.textContent = "Embed a message first; the comparison measures what happens to that message.";\n    return;\n  }\n  const embedded = lsbEmbedded;',
+    replace: '  const embedded = lsbEmbedded ?? { bits: [] as number[], message: "", passphrase: undefined as string | undefined };',
     test: 'survival: refuses before a message is embedded',
     why: 'a comparison that runs with nothing embedded',
   },
