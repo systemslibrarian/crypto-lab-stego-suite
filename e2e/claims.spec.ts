@@ -301,7 +301,7 @@ test('LSB: an empty message and a passphrase-less encryption are both refused', 
 });
 
 test('AES: encrypt-then-embed stores exactly the overhead, and only the right passphrase recovers it', async ({ page }) => {
-  const message = 'encrypt first, then hide';
+  const message = '\uFEFFCafé 🔐';
   await setText(page, 'lsb-message', message);
   await page.locator('#lsb-encrypt').check();
   await page.locator('#lsb-passphrase').fill('correct horse battery staple');
@@ -332,7 +332,7 @@ test('AES: encrypt-then-embed stores exactly the overhead, and only the right pa
 // ════════════ Exhibit 2 — carrier round trip and altered carriers ════════════
 
 test('carrier: the exported stego PNG re-uploads and extracts the same message', async ({ page }) => {
-  const message = 'round trip through a real PNG';
+  const message = '\uFEFFround trip through a real PNG';
   await setText(page, 'lsb-message', message);
   await embed(page);
 

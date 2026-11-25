@@ -9,7 +9,7 @@ const LEGACY_PAYLOAD = Uint8Array.from(LEGACY_HEX.match(/.{2}/g)!, (pair) => par
 
 describe("AES-256-GCM", () => {
   it("round-trips a message with the correct passphrase", async () => {
-    const message = "Encrypt first, then hide. 中文 🔒";
+    const message = "\uFEFF  Café 🔐  ";
     const packed = await encryptAesGcm(message, "correct horse battery staple");
     const parsed = parseLsbBody(parsePacketBytes(buildPacketBytes(makeLsbBody(LSB_MODE_AES_GCM_PBKDF2_600K, packed))));
     expect(parsed.mode).toBe(LSB_MODE_AES_GCM_PBKDF2_600K);
@@ -23,7 +23,7 @@ describe("AES-256-GCM", () => {
       material, { name: "AES-GCM", length: 256 }, false, ["decrypt"]
     );
     const independentPlain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: packed.slice(16, 28) }, key, packed.slice(28));
-    expect(new TextDecoder().decode(independentPlain)).toBe(message);
+    expect(new Uint8Array(independentPlain)).toEqual(new TextEncoder().encode(message));
   });
 
   it("fails to decrypt with the wrong passphrase", async () => {

@@ -43,7 +43,7 @@ describe("bit/byte codec", () => {
   });
 
   it("round-trips text packets including unicode", () => {
-    for (const text of ["", "hello", "Stego ✓ 中文 — 🔒"]) {
+    for (const text of ["", "hello", "\uFEFF  Café 🔐  ", "Stego ✓ 中文 — 🔒"]) {
       expect(decodeTextPacket(encodeTextPacket(text))).toBe(text);
     }
   });

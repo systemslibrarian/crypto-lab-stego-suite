@@ -1,6 +1,6 @@
 // AES-256-GCM with PBKDF2 key derivation. Encrypt-then-embed is the strongest model:
 // steganography hides existence, encryption protects content if the carrier is detected.
-import { LSB_MODE_AES_GCM_LEGACY, LSB_MODE_AES_GCM_PBKDF2_600K } from "./bits";
+import { payloadDecoder, LSB_MODE_AES_GCM_LEGACY, LSB_MODE_AES_GCM_PBKDF2_600K } from "./bits";
 
 const PBKDF2_ITERATIONS = 600_000;
 const LEGACY_PBKDF2_ITERATIONS = 120_000;
@@ -41,12 +41,11 @@ export async function decryptAesGcm(payload: Uint8Array, passphrase: string, mod
   if (payload.length < SALT_BYTES + IV_BYTES + 16) {
     throw new Error("Encrypted packet is too short.");
   }
-  const decoder = new TextDecoder();
   const salt = payload.slice(0, SALT_BYTES);
   const iv = payload.slice(SALT_BYTES, SALT_BYTES + IV_BYTES);
   const ciphertext = payload.slice(SALT_BYTES + IV_BYTES);
   const iterations = mode === LSB_MODE_AES_GCM_LEGACY ? LEGACY_PBKDF2_ITERATIONS : PBKDF2_ITERATIONS;
   const key = await deriveAesKey(passphrase, salt, iterations, "decrypt");
   const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
-  return decoder.decode(plain);
+  return payloadDecoder.decode(plain);
 }

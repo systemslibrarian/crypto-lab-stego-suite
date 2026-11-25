@@ -70,6 +70,9 @@ export function parseLsbBody(body: Uint8Array): { mode: number; payload: Uint8Ar
   return { mode, payload: body.slice(5, 5 + payloadLen) };
 }
 
+// Packet payloads hold user-entered text. A leading U+FEFF belongs to that text.
+export const payloadDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
+
 export function encodeTextPacket(text: string): number[] {
   const bytes = new TextEncoder().encode(text);
   return bytesToBits(buildPacketBytes(bytes));
@@ -81,7 +84,7 @@ export function decodeTextPacket(bits: number[]): string {
   const totalBits = (packetLen + 4) * 8;
   const packetBytes = bitsToBytes(bits.slice(0, totalBits));
   const body = parsePacketBytes(packetBytes);
-  return new TextDecoder().decode(body);
+  return payloadDecoder.decode(body);
 }
 
 /** Total bytes a plaintext LSB packet occupies on the wire: 4 (len) + 1 (mode) + 4 (payload len) + payload. */

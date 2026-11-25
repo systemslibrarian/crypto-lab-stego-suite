@@ -1,4 +1,5 @@
 import {
+  payloadDecoder,
   AES_OVERHEAD_BYTES,
   bitsToBytes,
   bytesToBits,
@@ -1011,7 +1012,7 @@ async function decodeLsbPacket(parsed: ParsedLsb): Promise<{ packet: LsbPacket }
   if (parsed.mode !== LSB_MODE_PLAIN) {
     return { error: "Unsupported hidden packet mode." };
   }
-  return { packet: { mode: "plain", message: new TextDecoder().decode(parsed.payload), passphraseUsed: false, legacyKdf: false } };
+  return { packet: { mode: "plain", message: payloadDecoder.decode(parsed.payload), passphraseUsed: false, legacyKdf: false } };
 }
 
 function recoveredModeDescription(packet: LsbPacket, label = "Mode"): string {

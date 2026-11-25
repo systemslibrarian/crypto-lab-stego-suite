@@ -5,7 +5,7 @@
 // ed., 2009). Every result here is a measurement on one image in one
 // run. Nothing in this module predicts survival in general.
 
-import { LSB_MODE_AES_GCM_LEGACY, LSB_MODE_AES_GCM_PBKDF2_600K, LSB_MODE_PLAIN, bitsToBytes, bytesToU32, parseLsbBody, parsePacketBytes } from "./bits";
+import { payloadDecoder, LSB_MODE_AES_GCM_LEGACY, LSB_MODE_AES_GCM_PBKDF2_600K, LSB_MODE_PLAIN, bitsToBytes, bytesToU32, parseLsbBody, parsePacketBytes } from "./bits";
 import { decryptAesGcm } from "./crypto";
 import { clampByte, cloneImageData, distortion } from "./image";
 import { extractBitsSpatial, lsbCapacityBits } from "./stego";
@@ -69,7 +69,7 @@ export async function assessCarrier(image: ImageData, expectedMessage: string, p
   if (parsed.mode !== LSB_MODE_PLAIN) {
     return { outcome: "carrier failure", detail: "The packet mode byte was altered." };
   }
-  const message = new TextDecoder().decode(parsed.payload);
+  const message = payloadDecoder.decode(parsed.payload);
   return message === expectedMessage
     ? { outcome: "recovered", detail: "The extracted message matches the embedded message." }
     : { outcome: "message altered", detail: "A packet was extracted, but its text differs from the embedded message." };
