@@ -1521,7 +1521,7 @@ function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof
     const flag = res.pEmbed > DETECT_THRESHOLD ? "Pattern flagged" : "At or below threshold";
     return `<tr><td>${Math.round(r * 100)}%</td><td>${bitCount.toLocaleString()}</td><td>${res.chi2.toFixed(2)}</td><td>${(res.pEmbed * 100).toFixed(2)}%</td><td>${flag}</td></tr>`;
   });
-  chiCurve.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Payload detectability curve"><table><thead><tr><th scope="col">Payload rate</th><th scope="col">Bits</th><th scope="col">χ²</th><th scope="col">Upper-tail p-value</th><th scope="col">Verdict</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><small>Each row applies the same classroom threshold to this image. A flag can occur on an untouched image.</small>`;
+  chiCurve.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Payload detectability curve"><table><thead><tr><th scope="col">Payload rate</th><th scope="col">Bits</th><th scope="col">χ²</th><th scope="col">Upper-tail p-value</th><th scope="col">Verdict</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><small>Each row applies the same classroom threshold. The bundled landscape typically crosses it as the random fill nears full capacity. A flag can also occur on an untouched image.</small>`;
 });
 
 // --- DCT exhibit ---
