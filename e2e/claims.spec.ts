@@ -523,6 +523,17 @@ test('DCT: the bit count is the packet size, and the message survives the coeffi
   expect(await page.locator('#dct-stats').innerText()).toContain(`Recovered: ${message}`);
 });
 
+test('DCT: keyboard-selectable axes expose the DC scale and a high-frequency basis', async ({ page }) => {
+  const u = page.getByLabel('Horizontal frequency (u)');
+  const v = page.getByLabel('Vertical frequency (v)');
+  await u.focus();
+  await u.press('Home');
+  await expect(page.locator('#dct-basis-text')).toContainText('DC term — 8 × (mean luminance − 128)');
+  await v.focus();
+  await v.press('End');
+  await expect(page.locator('#dct-basis-text')).toContainText('Coefficient (u=0, v=7): AC term');
+});
+
 test('DCT: extracting before embedding refuses instead of decoding noise', async ({ page }) => {
   await page.locator('#dct-transform').click();
   await blank(page, 'dct-stats');

@@ -351,13 +351,20 @@ app.innerHTML = `
       <p class="dct-primer">
         <strong>What is a DCT coefficient?</strong> The DCT rewrites each 8×8 block of pixels as a sum of 64 fixed
         wave patterns (from flat, to slow ripples, to fine checkerboards). A coefficient is simply <em>how much of one
-        wave pattern this block contains</em>. The top-left coefficient (DC) is the block's average brightness; the rest
-        (AC) carry its texture. We hide a bit by nudging one AC coefficient's parity (even/odd) by ±1 — a change JPEG
-        keeps, unlike a raw pixel LSB. <span class="dct-primer-hint">Hover any cell in the heatmap to see the wave pattern it controls.</span>
+        wave pattern this block contains</em>. The top-left coefficient (DC) equals 8 × (mean luminance − 128) in this transform.
+        A block at brightness 128 has DC 0, while a block at 129 has DC 8. The other 63 coefficients describe variations within the block.
+        This exhibit reads from the coefficients in memory. Re-encoding a JPEG can change them.
+        <span class="dct-primer-hint">Choose a frequency or hover a heatmap cell to preview its wave pattern.</span>
       </p>
       <div class="dct-basis" id="dct-basis" role="group" aria-label="DCT basis pattern preview">
-        <canvas id="dct-basis-canvas" width="64" height="64" role="img" aria-label="Wave pattern for the hovered DCT coefficient"></canvas>
-        <span class="dct-basis-text" id="dct-basis-text">Hover a heatmap cell to preview its 8×8 wave pattern (its DCT basis function).</span>
+        <canvas id="dct-basis-canvas" width="64" height="64" role="img" aria-label="Wave pattern for the selected DCT coefficient"></canvas>
+        <label>Horizontal frequency (u)
+          <select id="dct-basis-u">${Array.from({ length: 8 }, (_, i) => `<option>${i}</option>`).join("")}</select>
+        </label>
+        <label>Vertical frequency (v)
+          <select id="dct-basis-v">${Array.from({ length: 8 }, (_, i) => `<option>${i}</option>`).join("")}</select>
+        </label>
+        <span class="dct-basis-text" id="dct-basis-text"></span>
       </div>
       <div class="row">
         <div>
@@ -1524,7 +1531,15 @@ function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof
 const dctBasisCanvas = document.getElementById("dct-basis-canvas") as HTMLCanvasElement;
 const dctBasisText = document.getElementById("dct-basis-text") as HTMLSpanElement;
 
+const basisU = document.getElementById("dct-basis-u") as HTMLSelectElement;
+const basisV = document.getElementById("dct-basis-v") as HTMLSelectElement;
+for (const select of [basisU, basisV]) {
+  select.addEventListener("change", () => drawDctBasis(Number(basisU.value), Number(basisV.value)));
+}
+
 function drawDctBasis(u: number, v: number): void {
+  basisU.value = String(u);
+  basisV.value = String(v);
   const ctx = dctBasisCanvas.getContext("2d");
   if (!ctx) {
     return;
@@ -1550,7 +1565,7 @@ function drawDctBasis(u: number, v: number): void {
   ctx.clearRect(0, 0, 64, 64);
   ctx.drawImage(tmp, 0, 0, 64, 64);
 
-  const kind = u === 0 && v === 0 ? "DC term — the block's average brightness" : "AC term — carries texture at this frequency";
+  const kind = u === 0 && v === 0 ? "DC term — 8 × (mean luminance − 128)" : "AC term — carries texture at this frequency";
   dctBasisText.textContent = `Coefficient (u=${u}, v=${v}): ${kind}. Brighter/darker bands show the wave this coefficient scales.`;
 }
 
@@ -1573,7 +1588,9 @@ drawDctBasis(1, 0);
 (document.getElementById("dct-transform") as HTMLButtonElement).addEventListener("click", () => {
   dctState = computeDctBlocks(coverImage);
   drawDctHeatmap("dct-before", dctState.blocks[0], new Set<string>(), 0);
-  dctStats.innerHTML = "Computed 8×8 block DCT over the image. Showing block 0 heatmap.";
+  const dc = dctState.blocks[0][0][0];
+  const displayDc = Math.round(dc * 100) / 100;
+  dctStats.textContent = `Computed 8×8 block DCT over the image. Block 0 DC = ${displayDc.toFixed(2)}. Mean luminance = ${(128 + dc / 8).toFixed(2)}.`;
 });
 
 (document.getElementById("dct-embed") as HTMLButtonElement).addEventListener("click", () => {

@@ -703,6 +703,7 @@ small {
 /* ═══ DCT basis-pattern hover thumbnail ═══ */
 .dct-basis {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.7rem;
   margin-top: 0.6rem;
@@ -710,6 +711,14 @@ small {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+
+.dct-basis select {
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--control-border);
+  min-height: 2rem;
+  font: inherit;
 }
 
 .dct-basis canvas {

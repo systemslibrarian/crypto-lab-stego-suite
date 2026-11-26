@@ -7,6 +7,18 @@ function makeBlock(fn: (x: number, y: number) => number): number[][] {
   return Array.from({ length: 8 }, (_, y) => Array.from({ length: 8 }, (_, x) => fn(x, y)));
 }
 
+describe("constant grayscale images", () => {
+  it("maps gray 128 to DC zero and gray 129 to DC eight", () => {
+    for (const gray of [128, 129]) {
+      const data = new Uint8ClampedArray(8 * 8 * 4).fill(gray);
+      for (let i = 3; i < data.length; i += 4) data[i] = 255;
+      const block = computeDctBlocks(new ImageData(data, 8, 8)).blocks[0];
+      expect(block[0][0]).toBeCloseTo(8 * (gray - 128), 9);
+      for (const ac of block.flat().slice(1)) expect(ac).toBeCloseTo(0, 9);
+    }
+  });
+});
+
 describe("DCT", () => {
   it("dct2 followed by idct2 reconstructs the block", () => {
     const block = makeBlock((x, y) => Math.round(40 * Math.sin(x / 2) + 30 * Math.cos(y / 3)));
