@@ -64,7 +64,7 @@ describe("DOM smoke test", () => {
   it("drives chi-squared controls", async () => {
     click("chi-test-cover");
     await flush();
-    expect((document.getElementById("chi-results") as HTMLDivElement).textContent).toContain("probability of embedding");
+    expect((document.getElementById("chi-results") as HTMLDivElement).textContent).toContain("upper-tail p-value");
     click("chi-test-stego");
     await flush();
     click("chi-run-curve");

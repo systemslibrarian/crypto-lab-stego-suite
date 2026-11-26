@@ -393,11 +393,11 @@ test('carrier: JPEG re-encoding destroys the hidden bits, exactly as the README 
 
 // ════════════ Exhibit 3 — chi-squared steganalysis ════════════
 
-/** "χ²=N, probability of embedding=P%" plus the verdict text. */
+/** "χ²=N, upper-tail p-value=P%" plus the verdict text. */
 function readChi(text: string): { chi2: number; pct: number; detected: boolean } {
   const chi2 = numAfter(text, 'χ²=');
-  const pct = numAfter(text, 'probability of embedding=');
-  return { chi2, pct, detected: text.includes('✗ LSB embedding detected') };
+  const pct = numAfter(text, 'upper-tail p-value=');
+  return { chi2, pct, detected: text.includes('Pattern flagged') };
 }
 
 test('chi-squared: the verdict follows the probability the test computed', async ({ page }) => {
@@ -406,7 +406,7 @@ test('chi-squared: the verdict follows the probability the test computed', async
   const cover = readChi(await page.locator('#chi-results').innerText());
   expect(cover.chi2).toBeGreaterThan(0);
   expect(cover.detected, 'the verdict is the 50% rule applied to the printed probability').toBe(cover.pct > 50);
-  expect(cover.detected, 'a never-embedded cover must not be flagged').toBe(false);
+  expect(cover.detected, 'this particular original sample falls below the threshold').toBe(false);
 
   // The plotted distribution is drawn for the dof actually used.
   const caption = await page.locator('#chi-plot-caption').innerText();
@@ -445,7 +445,7 @@ test('chi-squared: the detectability curve only fires near full capacity', async
     expect(Number(cells[0].replace('%', '')) / 100).toBeCloseTo(rates[i], 5);
     expect(Number(cells[1].replace(/,/g, '')), 'bits = floor(capacity x rate)').toBe(Math.floor(CAPACITY_BITS * rates[i]));
     const pct = Number(cells[3].replace('%', ''));
-    const detected = cells[4].includes('detected');
+    const detected = cells[4].includes('Pattern flagged');
     expect(detected, `row ${i}: verdict must follow the printed probability`).toBe(pct > 50);
   });
 
@@ -570,7 +570,7 @@ test('adaptive: the comparison numbers back the stealth claim, and the chi verdi
 
   // The chi-squared sentence is read off the two probabilities, not asserted.
   const seqP = numAfter(stats, 'sequential');
-  const adaptP = numAfter(stats.split('P(embedding)')[1], 'adaptive');
+  const adaptP = numAfter(stats.split('Upper-tail p-value')[1], 'adaptive');
   const seqSeen = seqP > 50;
   const adaptSeen = adaptP > 50;
   const expected = !seqSeen && !adaptSeen

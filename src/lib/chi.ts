@@ -7,17 +7,15 @@ import { computeHistogram, imageToLuma } from "./image";
 export type ChiResult = {
   chi2: number;
   /**
-   * Westfeld–Pfitzmann probability of embedding = Q(dof/2, chi2/2), the goodness-of-fit
-   * to the "pairs of values are equal" hypothesis that LSB randomization produces.
-   * ≈1 means the carrier looks LSB-embedded; ≈0 means it looks like a natural cover.
-   * (This is NOT a classic small-is-anomalous p-value — large means detected.)
+   * Upper-tail probability Q(dof/2, chi2/2) under the reference model of
+   * balanced pair counts. A high score can occur on an untouched image.
    */
   pEmbed: number;
   dof: number;
 };
 
 /**
- * Above this probability-of-embedding the carrier is reported as detected.
+ * A score above this teaching threshold flags the image's pair counts.
  * It lives here, beside the function that produces `pEmbed`, because two
  * readers of the same number must not be able to drift to different verdicts:
  * the chi-squared exhibit and the beginner front-section both import it.

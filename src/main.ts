@@ -148,7 +148,7 @@ app.innerHTML = `
         except the technique, so anyone who guesses the method reads it.
         <a href="#exhibit-1">Exhibit 1</a> sets out that difference properly;
         <a href="#exhibit-3">Exhibit 3</a> explains the detector and walks the payload rates in between; the DCT and
-        adaptive exhibits are what people do to stay clean at higher rates.
+        adaptive exhibits compare changes to the image using different methods.
       </p>
     </section>
 
@@ -277,7 +277,7 @@ app.innerHTML = `
         <div class="controls"><button id="lsb-survival-run" type="button">Compare transformations</button></div>
         <div class="table-wrap" id="lsb-survival-wrap" tabindex="0" role="region" aria-label="Carrier survival results" hidden><table id="lsb-survival-table"><caption>Measured on this image, this run</caption><thead><tr><th scope="col">Transformation</th><th scope="col">Image change</th><th scope="col">Embedded bits read wrongly</th><th scope="col">Extraction result</th></tr></thead><tbody></tbody></table></div>
         <p id="lsb-survival-status" role="status" aria-live="polite"></p>
-        <p class="residual-note" id="lsb-survival-note">Detecting a message and extracting it are different questions. The chi-squared score in Exhibit 3 estimates whether LSB embedding is present; it is not a probability that a message can be extracted, and a low score is not evidence that a carrier is safe. Exhibit 4 extracts from DCT coefficients held in memory, which is not a saved-JPEG round trip; this comparison does not test it. With encryption on, a damaged packet header is a carrier failure, while a packet that survives but fails AES-GCM is an authentication failure.</p>
+        <p class="residual-note" id="lsb-survival-note">Detecting a message and extracting it are different questions. The chi-squared score in Exhibit 3 measures agreement with a model of equal counts within pairs; it is not a probability that a message can be extracted, and a low score is not evidence that a carrier is safe. Exhibit 4 extracts from DCT coefficients held in memory, which is not a saved-JPEG round trip; this comparison does not test it. With encryption on, a damaged packet header is a carrier failure, while a packet that survives but fails AES-GCM is an authentication failure.</p>
       </div>
       <div class="canvas-grid">
         <div class="figure"><h4>Cover image</h4><canvas id="lsb-cover" width="256" height="256" role="img" aria-label="Cover image before steganographic embedding"></canvas></div>
@@ -298,10 +298,10 @@ app.innerHTML = `
       <p>
         Westfeld &amp; Pfitzmann (IH 1999) pair-value test over (0,1), (2,3), ..., (254,255). LSB embedding tends to equalize each pair.
         This implementation computes a real chi-squared statistic and reports the
-        <strong>probability of embedding</strong> = <em>Q</em>(dof/2, χ²/2). Near 1 ⇒ the carrier looks LSB-embedded; near 0 ⇒ it looks like a natural cover.
+        <strong>upper-tail p-value</strong> = <em>Q</em>(dof/2, χ²/2). Under the reference model, this is the chance of a statistic at least as large as the observed one. Unequal pair counts lower the score. The classroom rule flags a score above 50%. A flag alone cannot tell you whether a message is present.
         The degrees of freedom are counted from the value-pairs this carrier actually populates, minus one — 127 for a
         full 8-bit histogram, fewer for a limited-palette image such as a screenshot or a logo. Empty pairs contribute no
-        term to the sum, so counting them anyway would score a clean narrow-palette cover as certainly embedded.
+        term to the sum. For example, a plain grayscale ramp can have exactly equal counts in every pair and score 100% with no hidden message. Sparse counts can make the chi-squared approximation unreliable. The single-pair fallback uses one degree of freedom only to keep the display finite.
       </p>
       <div class="toy" id="chi-toy" role="region" aria-labelledby="chi-toy-heading">
         <h3 id="chi-toy-heading">First, the whole idea in one picture</h3>
@@ -1464,8 +1464,8 @@ function drawToyHistogram(fraction: number): void {
     `Embedded fraction <strong>${Math.round(fraction * 100)}%</strong> · residual χ² over these 8 pairs = ` +
     `<strong>${chi2.toFixed(1)}</strong>. ` +
     (detected
-      ? `<span class="status-warn">Pairs nearly equalized — this is the LSB fingerprint the real test flags.</span>`
-      : `Pairs still lopsided — looks like a natural cover.`);
+      ? `<span class="status-warn">Pairs nearly equalized — the test checks for this pattern.</span>`
+      : `Pairs still lopsided in this model.`);
 }
 
 function updateToy(): void {
@@ -1481,8 +1481,8 @@ updateToy();
 function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof: number }): string {
   const detected = res.pEmbed > DETECT_THRESHOLD;
   return `
-    ${label}: χ²=${res.chi2.toFixed(2)}, probability of embedding=${(res.pEmbed * 100).toFixed(2)}%
-    <span class="${detected ? "status-warn" : "status-ok"}">${detected ? "✗ LSB embedding detected" : "✓ No LSB embedding detected"}</span>
+    ${label}: χ²=${res.chi2.toFixed(2)}, upper-tail p-value=${(res.pEmbed * 100).toFixed(2)}%
+    <span class="${detected ? "status-warn" : "status-ok"}">${detected ? "Pattern flagged" : "Pattern below or at threshold"}</span>
   `;
 }
 
@@ -1511,10 +1511,10 @@ function renderChiResult(label: string, res: { chi2: number; pEmbed: number; dof
     const bits = bytesToBits(randomBytes).slice(0, bitCount);
     const stego = embedBitsSpatial(coverImage, bits).stego;
     const res = chiSquaredSteganalysis(stego);
-    const flag = res.pEmbed > DETECT_THRESHOLD ? "✗ detected" : "✓ evades";
+    const flag = res.pEmbed > DETECT_THRESHOLD ? "Pattern flagged" : "At or below threshold";
     return `<tr><td>${Math.round(r * 100)}%</td><td>${bitCount.toLocaleString()}</td><td>${res.chi2.toFixed(2)}</td><td>${(res.pEmbed * 100).toFixed(2)}%</td><td>${flag}</td></tr>`;
   });
-  chiCurve.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Payload detectability curve"><table><thead><tr><th scope="col">Payload rate</th><th scope="col">Bits</th><th scope="col">χ²</th><th scope="col">P(embedding)</th><th scope="col">Verdict</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><small>Sequential whole-image embedding: the global test only flags the carrier as the payload nears full capacity.</small>`;
+  chiCurve.innerHTML = `<div class="table-wrap" tabindex="0" role="region" aria-label="Payload detectability curve"><table><thead><tr><th scope="col">Payload rate</th><th scope="col">Bits</th><th scope="col">χ²</th><th scope="col">Upper-tail p-value</th><th scope="col">Verdict</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><small>Each row applies the same classroom threshold to this image. A flag can occur on an untouched image.</small>`;
 });
 
 // --- DCT exhibit ---
@@ -1680,17 +1680,17 @@ drawDctBasis(1, 0);
   const adaptSeen = adaptive.pEmbed > DETECT_THRESHOLD;
   const chiVerdict =
     !seqSeen && !adaptSeen
-      ? "Whole-image chi-square flags neither at this payload — the crude global test is blind here."
+      ? "Whole-image chi-square flags neither at this payload — both scores are at or below the classroom threshold."
       : seqSeen && adaptSeen
-        ? "Whole-image chi-square flags both at this payload — this carrier is filled enough for even the crude global test to fire."
+        ? "Whole-image chi-square flags both at this payload — both scores exceed the classroom threshold."
         : seqSeen
           ? "Whole-image chi-square flags the sequential carrier but not the adaptive one."
           : "Whole-image chi-square flags the adaptive carrier but not the sequential one.";
   adaptStats.innerHTML = `
     <div>Same ${adaptiveChanged.length.toLocaleString()}-bit payload, different placement:</div>
-    <div>Mean texture at embedding sites — adaptive <strong>${adaptTexture.toFixed(1)}</strong> vs sequential <strong>${seqTexture.toFixed(1)}</strong> (higher = busier, harder to model).</div>
-    <div>Bits landing in smooth regions — adaptive <strong>${(adaptSmooth * 100).toFixed(1)}%</strong> vs sequential <strong>${(seqSmooth * 100).toFixed(1)}%</strong> (lower is stealthier).</div>
-    <div>${chiVerdict} (P(embedding): sequential ${(seq.pEmbed * 100).toFixed(2)}%, adaptive ${(adaptive.pEmbed * 100).toFixed(2)}%.) Adaptive's advantage shows up against richer-model / ML detectors, by keeping bits out of smooth regions where any detector looks first.</div>
+    <div>Mean texture at embedding sites — adaptive <strong>${adaptTexture.toFixed(1)}</strong> vs sequential <strong>${seqTexture.toFixed(1)}</strong> (higher = busier in this image).</div>
+    <div>Bits landing in smooth regions — adaptive <strong>${(adaptSmooth * 100).toFixed(1)}%</strong> vs sequential <strong>${(seqSmooth * 100).toFixed(1)}%</strong> (lower = fewer changes in smooth regions).</div>
+    <div>${chiVerdict} (Upper-tail p-value: sequential ${(seq.pEmbed * 100).toFixed(2)}%, adaptive ${(adaptive.pEmbed * 100).toFixed(2)}%.) The experiment measures placement and pair counts. Performance against a trained classifier requires a separate evaluation.</div>
   `;
 });
 

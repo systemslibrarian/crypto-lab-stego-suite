@@ -23,11 +23,11 @@ describe("incomplete gamma", () => {
 describe("chi-squared steganalysis", () => {
   const cover = createSampleImageData(256, 256, 37);
 
-  it("reports ~0 probability of embedding for a clean cover", () => {
+  it("reports a low upper-tail p-value for the bundled cover", () => {
     expect(chiSquaredSteganalysis(cover).pEmbed).toBeLessThan(0.05);
   });
 
-  it("reports high probability of embedding for a fully randomized carrier", () => {
+  it("reports a high upper-tail p-value for the randomized test fixture", () => {
     const cap = lsbCapacityBits(cover);
     const bits: number[] = [];
     for (let i = 0; i < cap; i += 1) {
@@ -64,6 +64,13 @@ describe("chi-squared steganalysis", () => {
       for (let p = 0; p < px; p += 1) data[p * 4 + 3] = 255;
       return new ImageData(data, px, 1);
     }
+
+    it("gives an untouched balanced palette a score of one", () => {
+      const result = chiSquaredSteganalysis(craft(8, 768, 0));
+      expect(result.chi2).toBe(0);
+      expect(result.dof).toBe(7);
+      expect(result.pEmbed).toBe(1);
+    });
 
     it("counts only the pairs it actually compared as degrees of freedom", () => {
       for (const pairs of [4, 8, 16]) {

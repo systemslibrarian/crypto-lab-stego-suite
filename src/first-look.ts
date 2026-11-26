@@ -195,22 +195,22 @@ export function mountFirstLook(): void {
       detectCover,
       cover.flagged ? "FLAGGED" : "CLEAN",
       "neutral",
-      cover.flagged ? "The original: a hidden message found." : "The original: nothing found. There is nothing in it.",
+      cover.flagged ? "The original was flagged even though we put no message in it." : "The original: nothing found. There is nothing in it.",
     );
     setVerdict(
       detectStego,
       stego.flagged ? "FLAGGED" : "CLEAN",
       stego.flagged ? "finding" : "good",
       stego.flagged
-        ? "The picture with the sentence in it: a hidden message found."
+        ? "The picture with the sentence in it: the test flagged its pixel pattern."
         : "The picture with the sentence in it: nothing found either \u2014 and there IS a message in it. You just read it.",
     );
 
     fillBtn.disabled = false;
     working.textContent =
-      `Original: probability of embedding ${(cover.pEmbed * 100).toFixed(2)}%. ` +
+      `Original: pair-balance score ${(cover.pEmbed * 100).toFixed(2)}%. ` +
       `With the sentence: ${(stego.pEmbed * 100).toFixed(2)}%. ` +
-      `Reported as found above ${(DETECT_THRESHOLD * 100).toFixed(0)}%. Exhibit 3 explains the number.`;
+      `The pattern is flagged above ${(DETECT_THRESHOLD * 100).toFixed(0)}%. Exhibit 3 explains the number.`;
   });
 
   fillBtn.addEventListener("click", () => {
@@ -244,11 +244,11 @@ export function mountFirstLook(): void {
       full.flagged ? "FLAGGED" : "CLEAN",
       full.flagged ? "finding" : "neutral",
       full.flagged
-        ? `Now it is found. Same picture, same method, same detector \u2014 the only change is how much is hidden: about ${Math.round(capacity / 8 / 1024)} KB instead of one sentence. Look at it, too: at this much the change has stopped being invisible, which is the other half of why nobody hides this much in one picture.`
+        ? `Now the detector flags the picture. Same picture, same method, same detector \u2014 the only change is how much is hidden: about ${Math.round(capacity / 8 / 1024)} KiB instead of one sentence. Look at it, too: at this much the change has stopped being invisible, which is the other half of why nobody hides this much in one picture.`
         : "Still nothing found, even with the picture full.",
     );
     workingFilled.textContent =
-      `Filled: probability of embedding ${(full.pEmbed * 100).toFixed(2)}%, against ${(DETECT_THRESHOLD * 100).toFixed(0)}% to be reported. ` +
+      `Filled: pair-balance score ${(full.pEmbed * 100).toFixed(2)}%, against ${(DETECT_THRESHOLD * 100).toFixed(0)}% to flag the pattern. ` +
       `Exhibit 3's payload curve walks the rates in between.`;
   });
 }

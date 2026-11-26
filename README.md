@@ -10,7 +10,7 @@ Stego Suite demonstrates three steganographic techniques — LSB (Least Signific
 - ✅ Covert communication where the existence of a message must be hidden
 - ✅ Combined with encryption: encrypt first, then hide (strongest model)
 - ✅ Network covert channels (timing-based or header-based)
-- ❌ LSB steganography for any adversarial context — chi-squared test detects it trivially and has since 1999
+- ❌ LSB steganography for any adversarial context — a whole-image pair-count test can miss changes or flag clean images
 - ❌ Steganography alone without encryption — if detected, content is exposed
 - ❌ JPEG LSB embedding — JPEG compression destroys LSB modifications (use DCT-domain tools for JPEG)
 - ❌ Smooth image regions — always embed in textured areas
@@ -34,7 +34,7 @@ Interactive teaching aids build the intuition before the machinery:
 
 ## What Can Go Wrong
 
-- **LSB is trivially detectable** — the chi-squared test has reliably flagged sequential LSB embedding since 1999; LSB offers no security in any adversarial setting.
+- **The detector can be wrong** — an untouched image can be flagged, and a modified image can fall below the threshold.
 - **JPEG compression destroys LSB** — re-encoding a JPEG wipes LSB modifications, so spatial LSB is useless for JPEG carriers (use DCT-domain methods instead).
 - **Embedding in smooth regions** — flat areas make statistical anomalies obvious; adaptive schemes concentrate changes in textured regions for exactly this reason.
 - **Stego without encryption** — steganography hides existence, not content; once a payload is detected, an unencrypted message is fully exposed.
@@ -67,7 +67,7 @@ npm run dev
 
 ## Steganalysis, stated correctly
 
-The chi-squared exhibit reports the Westfeld–Pfitzmann **probability of embedding** — `Q(dof/2, χ²/2)`, where ≈1 means the carrier looks LSB-embedded and ≈0 means it looks natural. It also surfaces the test's real blind spot: applied to a whole image it only fires reliably near full embedding, so partial and adaptive payloads slip past it. The adaptive exhibit quantifies *why* adaptive embedding is stealthier (mean texture at embedding sites, fraction of bits landing in smooth regions) rather than overclaiming a difference the crude global test cannot actually see.
+The exhibit reports the upper-tail p-value `Q(dof/2, χ²/2)` for the observed pair-count statistic. Large values occur when the two members of each pair have similar counts. The classroom rule flags values above 50%. A plain grayscale ramp with equally frequent values scores 100% even though it contains no embedded message. A p-value does not give the probability that a message is present. The test uses a chi-squared approximation and sparse counts limit its interpretation. See [Westfeld and Pfitzmann, §4.2](https://www2.htw-dresden.de/~westfeld/publikationen/ihw99.pdf) and [the American Statistical Association, principle 2](https://www.amstat.org/asa/files/pdfs/P-ValueStatement.pdf).
 
 ## Does the message survive?
 
